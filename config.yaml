@@ -1,0 +1,32 @@
+# You Nightscout params
+nightscout:
+  url: YOU_NS_URL
+  apiToken: YOU_API_TOKEN
+
+# You LibreLink params
+libreview:
+  auth:
+    username: some@domain.example
+    password: YOU_PASSWORD
+  importConfig:
+    apiEndpoint: https://api.libreview.ru
+    culture: ru-RU
+    domain: Libreview
+    gatewayType: FSLibreLink.Android
+    uom: "mmol/L"
+    deviceSettings:
+      selectedLanguage: ru_RU
+      selectedTimeFormat: 24hr
+      selectedCarbType: "grams of carbs"
+      glucoseTargetRangeLowInMgPerDl: 90
+      glucoseTargetRangeHighInMgPerDl: 144
+      firmwareVersion: "2.8.2"
+      hardwareName: Xiaomi
+      hardwareDescriptor: Redmi Note 8 Pro
+      osType: Android
+      osVersion: "29"
+      # LibreLink (RU) application
+      modelName: "com.freestylelibre.app.ru"
+      uniqueIdentifier: YOU_DEVICE_ID
+
+
