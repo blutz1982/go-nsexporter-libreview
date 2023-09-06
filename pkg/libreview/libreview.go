@@ -6,15 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 )
 
 const (
-	RecordNumberIncrement = 160000000000
+	RecordNumberIncrement            = 160000000000
+	RecordNumberIncrementUnscheduled = 260000000000
 )
 
 type Client interface {
-	ImportMeasurements(modificators ...MeasuremenModificator) error
+	ImportMeasurements(dryRun bool, modificators ...MeasuremenModificator) error
 	Auth() error
 }
 
@@ -83,14 +85,20 @@ func (lv *libreview) Auth() error {
 
 type MeasuremenModificator func(*MeasurementLog)
 
-func WithGlucoseEntries(entries GlucoseEntries) MeasuremenModificator {
+func WithScheduledGlucoseEntries(entries ScheduledGlucoseEntries) MeasuremenModificator {
 	return func(l *MeasurementLog) {
 		l.ScheduledContinuousGlucoseEntries = entries
 
 	}
 }
 
-func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) error {
+func WithUnscheduledGlucoseEntries(entries UnscheduledContinuousGlucoseEntries) MeasuremenModificator {
+	return func(l *MeasurementLog) {
+		l.UnscheduledContinuousGlucoseEntries = entries
+	}
+}
+
+func (lv *libreview) ImportMeasurements(dryRun bool, modificators ...MeasuremenModificator) error {
 
 	if len(modificators) == 0 {
 		return nil
@@ -145,10 +153,10 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) e
 				BloodGlucoseEntries:                 []interface{}{},
 				GenericEntries:                      []interface{}{},
 				KetoneEntries:                       []interface{}{},
-				ScheduledContinuousGlucoseEntries:   []*GlucoseEntry{},
+				ScheduledContinuousGlucoseEntries:   []*ScheduledContinuousGlucoseEntry{},
 				InsulinEntries:                      []interface{}{},
 				FoodEntries:                         []interface{}{},
-				UnscheduledContinuousGlucoseEntries: []interface{}{},
+				UnscheduledContinuousGlucoseEntries: []*UnscheduledContinuousGlucoseEntry{},
 			},
 		},
 	}
@@ -162,11 +170,21 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) e
 		return err
 	}
 
+	if dryRun {
+		return nil
+	}
+
 	resp, err := lv.client.Post(lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), "application/json", body)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	data, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)

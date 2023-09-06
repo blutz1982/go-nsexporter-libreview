@@ -48,8 +48,8 @@ type GlucoseEntry struct {
 	Delta        float64   `json:"delta"`
 	Direction    string    `json:"direction"`
 	Type         string    `json:"type"`
-	Filtered     int       `json:"filtered"`
-	Unfiltered   int       `json:"unfiltered"`
+	Filtered     float64   `json:"filtered"`
+	Unfiltered   float64   `json:"unfiltered"`
 	Rssi         int       `json:"rssi"`
 	Noise        int       `json:"noise"`
 	SysTime      time.Time `json:"sysTime"`
@@ -65,17 +65,30 @@ func (r *GlucoseEntries) Append(e *GlucoseEntry) {
 	*r = append(*r, e)
 }
 
-func (es GlucoseEntries) Filter(fn func(*GlucoseEntry) bool) GlucoseEntries {
-	var result GlucoseEntries
-	for _, e := range es {
+func (r GlucoseEntries) Len() int {
+	return len(r)
+}
+
+func (es GlucoseEntries) Filter(fn func(*GlucoseEntry) bool) (result GlucoseEntries) {
+	es.Visit(func(e *GlucoseEntry, _ error) error {
 		if fn(e) {
 			result.Append(e)
 		}
-	}
+		return nil
+	})
 	return result
 }
 
-func (es GlucoseEntries) Downsample(minutes int) GlucoseEntries {
+type DownsampleFunc func() float64
+
+func DownsampleMinutes(minutes int) DownsampleFunc {
+	return func() float64 {
+		return float64(minutes)
+	}
+}
+
+// func (es GlucoseEntries) Downsample(minutes int) GlucoseEntries {
+func (es GlucoseEntries) Downsample(f DownsampleFunc) GlucoseEntries {
 
 	var lastTS *time.Time
 
@@ -85,7 +98,7 @@ func (es GlucoseEntries) Downsample(minutes int) GlucoseEntries {
 			return true
 		}
 
-		if lastTS.Sub(e.DateString).Minutes() > float64(minutes) {
+		if lastTS.Sub(e.DateString).Minutes() > f() {
 			lastTS = &e.DateString
 			return true
 		}
@@ -108,7 +121,7 @@ func (es GlucoseEntries) Visit(fn VisitorFunc) error {
 }
 
 type Client interface {
-	GetGlucoseEntries(fromDate, toDate string, count int) (entries GlucoseEntries, err error)
+	GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error)
 }
 
 type nightscout struct {
@@ -131,22 +144,12 @@ func NewWithConfig(config *Config) (Client, error) {
 	}, nil
 }
 
-func (ns *nightscout) GetGlucoseEntries(fromDate, toDate string, count int) (entries GlucoseEntries, err error) {
-
-	dateFrom, err := time.Parse(TimestampLayout, fromDate)
-	if err != nil {
-		return nil, err
-	}
-
-	dateTo, err := time.Parse(TimestampLayout, toDate)
-	if err != nil {
-		return nil, err
-	}
+func (ns *nightscout) GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error) {
 
 	url := ns.baseUrl.JoinPath("api", "v1", "entries.json")
 	q := url.Query()
-	q.Add("find[dateString][$gte]", dateFrom.Format(TimestampLayout))
-	q.Add("find[dateString][$lte]", dateTo.Format(TimestampLayout))
+	q.Add("find[dateString][$gte]", fromDate.Format(TimestampLayout))
+	q.Add("find[dateString][$lte]", toDate.Format(TimestampLayout))
 	q.Add("count", strconv.Itoa(count))
 	q.Add("token", ns.apiToken)
 	url.RawQuery = q.Encode()
@@ -162,6 +165,7 @@ func (ns *nightscout) GetGlucoseEntries(fromDate, toDate string, count int) (ent
 	if err != nil {
 		return entries, err
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
