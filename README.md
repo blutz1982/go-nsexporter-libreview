@@ -32,3 +32,14 @@ Global Flags:
   -d, --debug           toggle debug
 ```
 
+# software disclaimer
+
+This project is subject to this disclaimer:
+
+I do not guarantee that this software is free from defects. This software is provided "as is" and you use
+software at your own risk.
+I make no warranties regarding performance, merchantability, fitness for a particular purpose, or any
+other warranties, express or implied.
+Under no circumstances shall I be liable for any direct, indirect, special,
+incidental or consequential damages resulting from the use, misuse or inability to use this software,
+even if I was warned about the possibility of such damage.
