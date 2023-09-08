@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
@@ -14,14 +15,21 @@ import (
 
 func newLibreCommand(ctx context.Context) *cobra.Command {
 
-	const frequencyDeflectionPercent int = 30
+	const (
+		frequencyDeflectionPercent int = 30
+		defaultTSLayout                = "2006-01-02"
+	)
 
 	var (
-		fromDate         string
-		toDate           string
-		minInterval      int
-		dryRun           bool
-		avgScanFrequency int
+		fromDate          string
+		toDate            string
+		dateOffset        string
+		minInterval       string
+		dryRun            bool
+		avgScanFrequency  int
+		setDevice         bool
+		tsLayout          string
+		lastTimestampFile string
 	)
 
 	cmd := &cobra.Command{
@@ -38,15 +46,34 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			nsGlucoseEntries, err := getNSGlucoseEntries(ns, fromDate, toDate)
+			nsGlucoseEntries, err := getNSGlucoseEntries(ctx, ns, fromDate, toDate, dateOffset, tsLayout)
 			if err != nil {
 				return err
 			}
 
-			nsGlucoseEntries = nsGlucoseEntries.Downsample(nightscout.DownsampleMinutes(minInterval))
+			if len(lastTimestampFile) > 0 {
+				lastTS, err := getLastTS(lastTimestampFile)
+				if err != nil {
+					return err
+				}
+
+				if lastTS != nil {
+					nsGlucoseEntries = nsGlucoseEntries.Filter(nightscout.OnlyAfter(lastTS.UTC().Add(time.Minute)))
+				}
+			}
+
+			d, err := time.ParseDuration(minInterval)
+			if err != nil {
+				return err
+			}
+
+			nsGlucoseEntries = nsGlucoseEntries.Downsample(nightscout.DownsampleDuration(d))
 
 			log.Info().
-				Int("count", nsGlucoseEntries.Len()).
+				Int("downsamplied count", nsGlucoseEntries.Len()).
+				Str("from date", fromDate).
+				Str("to date", toDate).
+				Str("date offset", dateOffset).
 				Msg("Get glucose entries from Nightscout")
 
 			var libreScheduledGlucoseEntries libreview.ScheduledGlucoseEntries
@@ -62,47 +89,60 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 
 			min, max := getRangeSpread(avgScanFrequency, frequencyDeflectionPercent)
 
-			nsGlucoseEntriesUnscheduled := nsGlucoseEntries.Downsample(func() float64 {
-				interval := float64(rand.Intn(max-min) + min)
-				return interval
+			nsGlucoseEntriesUnscheduled := nsGlucoseEntries.Downsample(func() time.Duration {
+				interval := rand.Intn(max-min) + min
+				return (time.Minute * time.Duration(interval))
 
 			})
 
 			var libreUnscheduledGlucoseEntries libreview.UnscheduledContinuousGlucoseEntries
-			nsGlucoseEntriesUnscheduled.Visit(func(e *nightscout.GlucoseEntry, err error) error {
-				// fmt.Println("date, direction ", e.DateString, e.Direction)
+			nsGlucoseEntriesUnscheduled.Visit(func(e *nightscout.GlucoseEntry, _ error) error {
 				libreUnscheduledGlucoseEntries.Append(transform.NSToLibreUnscheduledGlucoseEntry(e))
 				return nil
 
 			})
 
-			for _, e := range libreUnscheduledGlucoseEntries {
+			libreUnscheduledGlucoseEntries.Visit(func(e *libreview.UnscheduledContinuousGlucoseEntry, _ error) error {
 				log.Debug().
 					Time("ts", e.Timestamp).
 					Float64("svg", e.ValueInMgPerDl).
 					Str("direction", e.ExtendedProperties.TrendArrow).
 					Msg("Unscheduled Glucose entry")
+				return nil
+			})
+
+			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 {
+				log.Info().Msg("Nothing to post")
+				return nil
 			}
 
 			lv := libreview.NewWithConfig(settings.Libreview())
 
-			if err := lv.Auth(); err != nil {
+			if err := lv.Auth(setDevice); err != nil {
 				return err
 			}
 
-			if dryRun {
-				log.Info().Msg("dry run mode. Nothing to post")
-			}
+			log.Debug().
+				Int("scheduledGlucoseEntries", len(libreScheduledGlucoseEntries)).
+				Int("unscheduledGlucoseEntries", len(libreUnscheduledGlucoseEntries)).
+				Msg("Export measurements")
 
 			if err := lv.ImportMeasurements(
-				dryRun,
 				libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
 				libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
 			); err != nil {
 				return err
 			}
 
-			log.Info().Int("count", nsGlucoseEntries.Len()).Msg("Export success")
+			log.Info().Msg("Export success")
+
+			lastEntry, ok := libreScheduledGlucoseEntries.Last()
+			if ok && len(lastTimestampFile) > 0 && !dryRun {
+				if err := saveTS(lastTimestampFile, lastEntry.Timestamp); err != nil {
+					return err
+				}
+				log.Debug().Time("ts", lastEntry.Timestamp).Msg("Last entry timestamp")
+			}
 
 			return nil
 
@@ -110,12 +150,35 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	}
 
 	fs := cmd.Flags()
-	fs.StringVar(&fromDate, "date-from", "", "start of sampling period")
-	fs.StringVar(&toDate, "date-to", "", "end of sampling period")
-	fs.IntVar(&minInterval, "min-interval", 12, "filter: min sample interval (minutes)")
-	fs.IntVar(&avgScanFrequency, "scan-frequency", 90, "average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30%")
-	fs.BoolVar(&dryRun, "dry-run", false, "dont post measurement to libreview")
+	fs.StringVar(&tsLayout, "ts-layout", defaultTSLayout, "Timestamp layout for --date-from and --date-to flags. More https://go.dev/src/time/format.go")
+	fs.StringVar(&fromDate, "date-from", "", "Start of sampling period")
+	fs.StringVar(&dateOffset, "date-offset", "", "Start of sampling period with current time offset. Set in duration (e.g. 24h or 72h30m). Ignore --date-from and --date-to flags")
+	fs.StringVar(&toDate, "date-to", "", "End of sampling period")
+	fs.StringVar(&minInterval, "min-interval", "10m10s", "Filter: minimum sample interval (duration)")
+	fs.IntVar(&avgScanFrequency, "scan-frequency", 90, "Average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30%")
+	fs.BoolVar(&dryRun, "dry-run", false, "Do not post measurement to LibreView")
+	fs.BoolVar(&setDevice, "set-device", true, "Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink)")
+	fs.StringVar(&lastTimestampFile, "last-ts-file", "", "Path to last timestamp file (for example ./last.ts )")
+
 	return cmd
+}
+
+func saveTS(tsfile string, ts time.Time) error {
+	return os.WriteFile(tsfile, []byte(ts.Format(time.RFC3339)), 0644)
+}
+
+func getLastTS(tsfile string) (*time.Time, error) {
+	data, err := os.ReadFile(tsfile)
+	if err != nil {
+		return nil, nil
+	}
+
+	t, err := time.Parse(time.RFC3339, string(data))
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
 }
 
 func Percent(percent int, all int) float64 {
@@ -127,27 +190,42 @@ func getRangeSpread(avgVal, percentSpread int) (min, max int) {
 		int(float64(avgVal) + Percent(percentSpread, avgVal))
 }
 
-func getNSGlucoseEntries(ns nightscout.Client, fromDateStr, toDateStr string) (nightscout.GlucoseEntries, error) {
+func getNSGlucoseEntries(ctx context.Context, ns nightscout.Client, fromDateStr, toDateStr, dateOffset, tsLayout string) (nightscout.GlucoseEntries, error) {
 
 	var (
 		fromDate time.Time
 		toDate   time.Time
 		err      error
+		duration time.Duration
 	)
 
+	if len(dateOffset) > 0 {
+		fromDateStr = ""
+		toDateStr = ""
+		duration, err = time.ParseDuration(dateOffset)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if len(fromDateStr) == 0 {
-		fromDate = time.Now()
+		now := time.Now().Local()
+		if len(dateOffset) > 0 {
+			fromDate = now.Add(-duration)
+		} else {
+			fromDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+		}
 	} else {
-		fromDate, err = time.Parse(nightscout.TimestampLayout, fromDateStr)
+		fromDate, err = time.ParseInLocation(tsLayout, fromDateStr, time.Local)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if len(toDateStr) == 0 {
-		toDate = fromDate.AddDate(0, 0, 1)
+		toDate = time.Now().Local()
 	} else {
-		toDate, err = time.Parse(nightscout.TimestampLayout, toDateStr)
+		toDate, err = time.ParseInLocation(tsLayout, toDateStr, time.Local)
 		if err != nil {
 			return nil, err
 		}

@@ -42,7 +42,7 @@ func NSToLibreUnscheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Uns
 }
 
 // https://github.com/nightscout/cgm-remote-monitor/blob/46418c7ff275ae80de457209c1686811e033b5dd/lib/plugins/direction.js#L53
-// TODO: find out all possible the values ​​for Libre TrendArrow field
+// TODO: find out all possible values ​​for Libre TrendArrow field
 
 func ToLibreDirection(nsDirection string) string {
 	switch nsDirection {

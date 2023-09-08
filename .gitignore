@@ -2,4 +2,5 @@ config-dev.yaml
 nsexport*
 nsexport.exe
 build
+last.ts
 

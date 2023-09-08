@@ -1,6 +1,7 @@
 package nightscout
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,8 +14,6 @@ const (
 	DefaultMaxSVG = 400
 	DefaultMinSVG = 40
 	MaxEnties     = 131072
-
-	TimestampLayout = "2006-01-02"
 )
 
 type SVG int
@@ -69,7 +68,15 @@ func (r GlucoseEntries) Len() int {
 	return len(r)
 }
 
-func (es GlucoseEntries) Filter(fn func(*GlucoseEntry) bool) (result GlucoseEntries) {
+type FilterFunc func(*GlucoseEntry) bool
+
+func OnlyAfter(date time.Time) FilterFunc {
+	return func(e *GlucoseEntry) bool {
+		return e.DateString.After(date)
+	}
+}
+
+func (es GlucoseEntries) Filter(fn FilterFunc) (result GlucoseEntries) {
 	es.Visit(func(e *GlucoseEntry, _ error) error {
 		if fn(e) {
 			result.Append(e)
@@ -79,11 +86,11 @@ func (es GlucoseEntries) Filter(fn func(*GlucoseEntry) bool) (result GlucoseEntr
 	return result
 }
 
-type DownsampleFunc func() float64
+type DownsampleFunc func() time.Duration
 
-func DownsampleMinutes(minutes int) DownsampleFunc {
-	return func() float64 {
-		return float64(minutes)
+func DownsampleDuration(d time.Duration) DownsampleFunc {
+	return func() time.Duration {
+		return d
 	}
 }
 
@@ -98,7 +105,7 @@ func (es GlucoseEntries) Downsample(f DownsampleFunc) GlucoseEntries {
 			return true
 		}
 
-		if lastTS.Sub(e.DateString).Minutes() > f() {
+		if lastTS.Sub(e.DateString) > f() {
 			lastTS = &e.DateString
 			return true
 		}
@@ -122,6 +129,7 @@ func (es GlucoseEntries) Visit(fn VisitorFunc) error {
 
 type Client interface {
 	GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error)
+	GetGlucoseEntriesWithContext(ctx context.Context, fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error)
 }
 
 type nightscout struct {
@@ -145,16 +153,20 @@ func NewWithConfig(config *Config) (Client, error) {
 }
 
 func (ns *nightscout) GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error) {
+	return ns.GetGlucoseEntriesWithContext(context.Background(), fromDate, toDate, count)
+}
+
+func (ns *nightscout) GetGlucoseEntriesWithContext(ctx context.Context, fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error) {
 
 	url := ns.baseUrl.JoinPath("api", "v1", "entries.json")
 	q := url.Query()
-	q.Add("find[dateString][$gte]", fromDate.Format(TimestampLayout))
-	q.Add("find[dateString][$lte]", toDate.Format(TimestampLayout))
+	q.Add("find[dateString][$gte]", fromDate.UTC().Format(time.RFC3339))
+	q.Add("find[dateString][$lte]", toDate.UTC().Format(time.RFC3339))
 	q.Add("count", strconv.Itoa(count))
 	q.Add("token", ns.apiToken)
 	url.RawQuery = q.Encode()
 
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return entries, err
 	}

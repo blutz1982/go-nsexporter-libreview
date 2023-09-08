@@ -59,6 +59,33 @@ type UnscheduledContinuousGlucoseEntry struct {
 
 type UnscheduledContinuousGlucoseEntries []*UnscheduledContinuousGlucoseEntry
 
+type UnscheduledVisitorFunc func(*UnscheduledContinuousGlucoseEntry, error) error
+
+func (es UnscheduledContinuousGlucoseEntries) Visit(fn UnscheduledVisitorFunc) error {
+	var err error
+	for _, entry := range es {
+		if err = fn(entry, err); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (es UnscheduledContinuousGlucoseEntries) Last() (*UnscheduledContinuousGlucoseEntry, bool) {
+	var entry *UnscheduledContinuousGlucoseEntry
+	es.Visit(func(e *UnscheduledContinuousGlucoseEntry, _ error) error {
+		if entry == nil {
+			entry = e
+		} else {
+			if e.Timestamp.After(entry.Timestamp) {
+				entry = e
+			}
+		}
+		return nil
+	})
+	return entry, (entry != nil)
+}
+
 func (es *UnscheduledContinuousGlucoseEntries) Append(e *UnscheduledContinuousGlucoseEntry) {
 	*es = append(*es, e)
 }
@@ -91,6 +118,22 @@ type ScheduledContinuousGlucoseEntry struct {
 type ScheduledGlucoseEntries []*ScheduledContinuousGlucoseEntry
 
 type VisitorFunc func(*ScheduledContinuousGlucoseEntry, error) error
+
+func (es ScheduledGlucoseEntries) Last() (*ScheduledContinuousGlucoseEntry, bool) {
+	var entry *ScheduledContinuousGlucoseEntry
+	es.Visit(func(e *ScheduledContinuousGlucoseEntry, _ error) error {
+		if entry == nil {
+			entry = e
+		} else {
+			if e.Timestamp.After(entry.Timestamp) {
+				entry = e
+			}
+		}
+		return nil
+	})
+
+	return entry, (entry != nil)
+}
 
 func (es ScheduledGlucoseEntries) Visit(fn VisitorFunc) error {
 	var err error

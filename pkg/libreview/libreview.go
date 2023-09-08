@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 )
 
@@ -16,8 +15,8 @@ const (
 )
 
 type Client interface {
-	ImportMeasurements(dryRun bool, modificators ...MeasuremenModificator) error
-	Auth() error
+	ImportMeasurements(modificators ...MeasuremenModificator) error
+	Auth(setDevice bool) error
 }
 
 type libreview struct {
@@ -34,7 +33,7 @@ func NewWithConfig(config *Config) Client {
 	}
 }
 
-func (lv *libreview) Auth() error {
+func (lv *libreview) Auth(setDevice bool) error {
 	var err error
 
 	lv.apiEndpoint, err = url.Parse(lv.config.ImportConfig.APIEndpoint)
@@ -46,7 +45,7 @@ func (lv *libreview) Auth() error {
 		Culture:     lv.config.ImportConfig.Culture,
 		DeviceId:    lv.config.ImportConfig.DevSettings.UniqueIdentifier,
 		GatewayType: lv.config.ImportConfig.GatewayType,
-		SetDevice:   false,
+		SetDevice:   setDevice,
 		UserName:    lv.config.Auth.Username,
 		Domain:      lv.config.ImportConfig.Domain,
 		Password:    lv.config.Auth.Password,
@@ -62,6 +61,13 @@ func (lv *libreview) Auth() error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	//// debug
+	// data, err := httputil.DumpResponse(resp, true)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println(string(data))
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Libreview auth: bad status code %d", resp.StatusCode)
@@ -98,7 +104,7 @@ func WithUnscheduledGlucoseEntries(entries UnscheduledContinuousGlucoseEntries) 
 	}
 }
 
-func (lv *libreview) ImportMeasurements(dryRun bool, modificators ...MeasuremenModificator) error {
+func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) error {
 
 	if len(modificators) == 0 {
 		return nil
@@ -170,21 +176,17 @@ func (lv *libreview) ImportMeasurements(dryRun bool, modificators ...MeasuremenM
 		return err
 	}
 
-	if dryRun {
-		return nil
-	}
-
 	resp, err := lv.client.Post(lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), "application/json", body)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	data, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(data))
+	// data, err := httputil.DumpResponse(resp, true)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println(string(data))
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)
