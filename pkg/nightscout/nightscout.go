@@ -94,7 +94,6 @@ func DownsampleDuration(d time.Duration) DownsampleFunc {
 	}
 }
 
-// func (es GlucoseEntries) Downsample(minutes int) GlucoseEntries {
 func (es GlucoseEntries) Downsample(f DownsampleFunc) GlucoseEntries {
 
 	var lastTS *time.Time

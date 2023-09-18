@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"os"
 	"time"
@@ -12,6 +13,19 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
+
+func validateConfig() error {
+	if settings.Nightscout() == nil {
+		return errors.New("bad config. nightscout section not found")
+	}
+
+	if settings.Libreview() == nil {
+		return errors.New("bad config. libreview section not found")
+	}
+
+	return nil
+
+}
 
 func newLibreCommand(ctx context.Context) *cobra.Command {
 
@@ -40,6 +54,10 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			if err := validateConfig(); err != nil {
+				return err
+			}
 
 			ns, err := nightscout.NewWithConfig(settings.Nightscout())
 			if err != nil {
@@ -89,17 +107,14 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 
 			min, max := getRangeSpread(avgScanFrequency, frequencyDeflectionPercent)
 
-			nsGlucoseEntriesUnscheduled := nsGlucoseEntries.Downsample(func() time.Duration {
-				interval := rand.Intn(max-min) + min
-				return (time.Minute * time.Duration(interval))
-
-			})
-
 			var libreUnscheduledGlucoseEntries libreview.UnscheduledContinuousGlucoseEntries
-			nsGlucoseEntriesUnscheduled.Visit(func(e *nightscout.GlucoseEntry, _ error) error {
+
+			nsGlucoseEntries.Downsample(func() time.Duration {
+				return (time.Minute * time.Duration(rand.Intn(max-min)+min))
+
+			}).Visit(func(e *nightscout.GlucoseEntry, _ error) error {
 				libreUnscheduledGlucoseEntries.Append(transform.NSToLibreUnscheduledGlucoseEntry(e))
 				return nil
-
 			})
 
 			libreUnscheduledGlucoseEntries.Visit(func(e *libreview.UnscheduledContinuousGlucoseEntry, _ error) error {
@@ -231,6 +246,6 @@ func getNSGlucoseEntries(ctx context.Context, ns nightscout.Client, fromDateStr,
 		}
 	}
 
-	return ns.GetGlucoseEntries(fromDate, toDate, nightscout.MaxEnties)
+	return ns.GetGlucoseEntriesWithContext(ctx, fromDate, toDate, nightscout.MaxEnties)
 
 }

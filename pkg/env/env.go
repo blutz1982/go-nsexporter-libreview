@@ -1,6 +1,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
@@ -57,6 +58,9 @@ func (s *EnvSettings) LoadConfig() error {
 	}
 
 	if err := yaml.Unmarshal(b, f); err != nil {
+		fmt.Println("bad yaml: ", s.ConfigPath)
+		fmt.Println("---")
+		fmt.Println(string(b))
 		return err
 	}
 
