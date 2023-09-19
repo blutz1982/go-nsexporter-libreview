@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"time"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/env"
 	"github.com/rs/zerolog"
@@ -61,6 +62,18 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 		if err := settings.LoadConfig(); err != nil {
 			log.Fatal().Err(err).Msg("cant load config")
 		}
+
+		if len(settings.Timezone) == 0 {
+			return
+		}
+
+		loc, err := time.LoadLocation(settings.Timezone)
+		if err != nil {
+			log.Fatal().Err(err).Msg("cant load timezone")
+		}
+
+		time.Local = loc
+
 	})
 
 	cmd.AddCommand(

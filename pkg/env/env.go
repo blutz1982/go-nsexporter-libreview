@@ -20,6 +20,7 @@ type EnvSettings struct {
 	version    string
 	ConfigPath string
 	Debug      bool
+	Timezone   string
 	config     *file
 }
 
@@ -31,8 +32,8 @@ func New() *EnvSettings {
 	env := &EnvSettings{
 		ConfigPath: "config.yaml",
 		Debug:      false,
+		Timezone:   "",
 	}
-
 	return env
 }
 
@@ -40,6 +41,7 @@ func New() *EnvSettings {
 func (s *EnvSettings) AddCommonFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&s.ConfigPath, "config", "c", s.ConfigPath, "path to config")
 	fs.BoolVarP(&s.Debug, "debug", "d", s.Debug, "toggle debug")
+	fs.StringVar(&s.Timezone, "timezone", s.Timezone, "override timezone")
 }
 
 func envOr(name, def string) string {
