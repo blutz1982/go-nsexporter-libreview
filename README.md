@@ -31,8 +31,9 @@ Flags:
       --ts-layout string      Timestamp layout for --date-from and --date-to flags. More https://go.dev/src/time/format.go (default "2006-01-02")
 
 Global Flags:
-  -c, --config string   path to config (default "config.yaml")
-  -d, --debug           toggle debug
+  -c, --config string     path to config (default "config.yaml")
+  -d, --debug             toggle debug
+      --timezone string   override timezone
 
 ```
 
