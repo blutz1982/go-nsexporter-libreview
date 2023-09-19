@@ -64,7 +64,12 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			nsGlucoseEntries, err := getNSGlucoseEntries(ctx, ns, fromDate, toDate, dateOffset, tsLayout)
+			dateFrom, dateTo, err := getDateRange(fromDate, toDate, dateOffset, tsLayout)
+			if err != nil {
+				return err
+			}
+
+			nsGlucoseEntries, err := ns.GetGlucoseEntriesWithContext(ctx, dateFrom, dateTo, nightscout.MaxEnties)
 			if err != nil {
 				return err
 			}
@@ -88,11 +93,10 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 			nsGlucoseEntries = nsGlucoseEntries.Downsample(nightscout.DownsampleDuration(d))
 
 			log.Info().
-				Int("downsamplied count", nsGlucoseEntries.Len()).
-				Str("from date", fromDate).
-				Str("to date", toDate).
-				Str("date offset", dateOffset).
-				Msg("Get glucose entries from Nightscout")
+				Int("count", nsGlucoseEntries.Len()).
+				Time("fromDate", dateFrom).
+				Time("toDate", dateTo).
+				Msg("Get scheduled glucose entries from Nightscout")
 
 			var libreScheduledGlucoseEntries libreview.ScheduledGlucoseEntries
 			nsGlucoseEntries.Visit(func(e *nightscout.GlucoseEntry, err error) error {
@@ -101,9 +105,15 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 					Time("ts", e.DateString.Local()).
 					Float64("svg", e.Sgv.Float64()).
 					Str("direction", e.Direction).
-					Msg("entry")
+					Msg("Scheduled Glucose entry")
 				return nil
 			})
+
+			log.Info().
+				Int("count", nsGlucoseEntries.Len()).
+				Time("fromDate", dateFrom).
+				Time("toDate", dateTo).
+				Msg("Prepare unscheduled glucose entries")
 
 			min, max := getRangeSpread(avgScanFrequency, frequencyDeflectionPercent)
 
@@ -126,6 +136,11 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return nil
 			})
 
+			log.Info().
+				Int("scheduledGlucoseEntries", len(libreScheduledGlucoseEntries)).
+				Int("unscheduledGlucoseEntries", len(libreUnscheduledGlucoseEntries)).
+				Msg("Measurements to export")
+
 			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 {
 				log.Info().Msg("Nothing to post")
 				return nil
@@ -137,11 +152,6 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			log.Debug().
-				Int("scheduledGlucoseEntries", len(libreScheduledGlucoseEntries)).
-				Int("unscheduledGlucoseEntries", len(libreUnscheduledGlucoseEntries)).
-				Msg("Export measurements")
-
 			if err := lv.ImportMeasurements(
 				libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
 				libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
@@ -149,14 +159,15 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			log.Info().Msg("Export success")
+			log.Info().
+				Msg("Export measurements success")
 
 			lastEntry, ok := libreScheduledGlucoseEntries.Last()
 			if ok && len(lastTimestampFile) > 0 && !dryRun {
 				if err := saveTS(lastTimestampFile, lastEntry.Timestamp); err != nil {
 					return err
 				}
-				log.Debug().Time("ts", lastEntry.Timestamp).Msg("Last entry timestamp")
+				log.Info().Time("ts", lastEntry.Timestamp).Msg("Last scheduled glucose entry timestamp")
 			}
 
 			return nil
@@ -205,21 +216,16 @@ func getRangeSpread(avgVal, percentSpread int) (min, max int) {
 		int(float64(avgVal) + Percent(percentSpread, avgVal))
 }
 
-func getNSGlucoseEntries(ctx context.Context, ns nightscout.Client, fromDateStr, toDateStr, dateOffset, tsLayout string) (nightscout.GlucoseEntries, error) {
+func getDateRange(fromDateStr, toDateStr, dateOffset, tsLayout string) (fromDate, toDate time.Time, err error) {
 
-	var (
-		fromDate time.Time
-		toDate   time.Time
-		err      error
-		duration time.Duration
-	)
+	var duration time.Duration
 
 	if len(dateOffset) > 0 {
 		fromDateStr = ""
 		toDateStr = ""
 		duration, err = time.ParseDuration(dateOffset)
 		if err != nil {
-			return nil, err
+			return time.Time{}, time.Time{}, err
 		}
 	}
 
@@ -233,7 +239,7 @@ func getNSGlucoseEntries(ctx context.Context, ns nightscout.Client, fromDateStr,
 	} else {
 		fromDate, err = time.ParseInLocation(tsLayout, fromDateStr, time.Local)
 		if err != nil {
-			return nil, err
+			return time.Time{}, time.Time{}, err
 		}
 	}
 
@@ -242,10 +248,10 @@ func getNSGlucoseEntries(ctx context.Context, ns nightscout.Client, fromDateStr,
 	} else {
 		toDate, err = time.ParseInLocation(tsLayout, toDateStr, time.Local)
 		if err != nil {
-			return nil, err
+			return time.Time{}, time.Time{}, err
 		}
 	}
 
-	return ns.GetGlucoseEntriesWithContext(ctx, fromDate, toDate, nightscout.MaxEnties)
+	return
 
 }
