@@ -3,7 +3,7 @@ APPNAME = nsexport
 VERSION :=  $(shell cat version.txt)
 IMAGE_NAME = blutz1982/$(APPNAME)
 IMAGE_TAG = ${VERSION}
-LDFLAGS := -X main.version=${VERSION} -X main.appName=$(APPNAME)
+LDFLAGS := -X main.version=${VERSION} -X main.app=$(APPNAME)
 
 .PHONY: build
 build:

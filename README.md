@@ -19,16 +19,17 @@ Usage:
   nsexport libreview [flags]
 
 Flags:
-      --date-from string      Start of sampling period
-      --date-offset string    Start of sampling period with current time offset. Set in duration (e.g. 24h or 72h30m). Ignore --date-from and --date-to flags
-      --date-to string        End of sampling period
-      --dry-run               Do not post measurement to LibreView
-  -h, --help                  help for libreview
-      --last-ts-file string   Path to last timestamp file (for example ./last.ts )
-      --min-interval string   Filter: minimum sample interval (duration) (default "10m10s")
-      --scan-frequency int    Average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30% (default 90)
-      --set-device            Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink) (default true)
-      --ts-layout string      Timestamp layout for --date-from and --date-to flags. More https://go.dev/src/time/format.go (default "2006-01-02")
+      --date-from string       Start of sampling period
+      --date-offset string     Start of sampling period with current time offset. Set in duration (e.g. 24h or 72h30m). Ignore --date-from and --date-to flags
+      --date-to string         End of sampling period
+      --dry-run                Do not post measurement to LibreView
+  -h, --help                   help for libreview
+      --last-ts-file string    Path to last timestamp file (for example ./last.ts )
+      --measurements strings   measurements to upload (default [scheduledContinuousGlucose,unscheduledContinuousGlucose,insulin])
+      --min-interval string    Filter: minimum sample interval (duration) (default "10m10s")
+      --scan-frequency int     Average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30% (default 90)
+      --set-device             Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink) (default true)
+      --ts-layout string       Timestamp layout for --date-from and --date-to flags. More https://go.dev/src/time/format.go (default "2006-01-02")
 
 Global Flags:
   -c, --config string     path to config (default "config.yaml")
@@ -45,6 +46,8 @@ flag **--date-offset** determines the time offset (backward) relative to the cur
 
 
 flag **--last-ts-file** determines the path to the file in which the time stamp of the last exported glucose entry will be stored (or is already stored). When used, all subsequent export operations will exclude all records with a date preceding this timestamp.
+
+flag **--measurements** determines a set of metrics that should be exported to LibreView.
 
 
 # config
