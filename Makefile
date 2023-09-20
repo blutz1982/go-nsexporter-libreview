@@ -3,18 +3,19 @@ APPNAME = nsexport
 VERSION :=  $(shell cat version.txt)
 IMAGE_NAME = blutz1982/$(APPNAME)
 IMAGE_TAG = ${VERSION}
+LDFLAGS := -X main.version=${VERSION} -X main.appName=$(APPNAME)
 
 .PHONY: build
 build:
-	$(GO) build -o build/$(APPNAME) -ldflags "-X main.version=${VERSION}" .
+	$(GO) build -o build/$(APPNAME) -ldflags "$(LDFLAGS)" .
 
 .PHONY: build-arm
 build-arm:
-	GOARCH=arm $(GO) build -o build/$(APPNAME)-arm -ldflags "-X main.version=${VERSION}" .
+	GOARCH=arm $(GO) build -o build/$(APPNAME)-arm -ldflags "$(LDFLAGS)" .
 
 .PHONY: build-win
 build-win:
-	GOOS=windows $(GO) build -o build/$(APPNAME).exe -ldflags "-X main.version=${VERSION}" .
+	GOOS=windows $(GO) build -o build/$(APPNAME).exe -ldflags "$(LDFLAGS)" .
 
 .PHONY: all
 all: build build-win build-arm

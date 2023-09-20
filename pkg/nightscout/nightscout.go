@@ -58,6 +58,31 @@ type GlucoseEntry struct {
 	Mills        int64     `json:"mills"`
 }
 
+type Treatment struct {
+	ID        string    `json:"_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Insulin   int       `json:"insulin"`
+	Carbs     int       `json:"carbs"`
+}
+
+type Treatments []*Treatment
+
+type TreatmentsVisitorFunc func(*Treatment, error) error
+
+func (es Treatments) Visit(fn TreatmentsVisitorFunc) error {
+	var err error
+	for _, entry := range es {
+		if err = fn(entry, err); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t Treatments) Len() int {
+	return len(t)
+}
+
 type GlucoseEntries []*GlucoseEntry
 
 func (r *GlucoseEntries) Append(e *GlucoseEntry) {
@@ -129,6 +154,8 @@ func (es GlucoseEntries) Visit(fn VisitorFunc) error {
 type Client interface {
 	GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error)
 	GetGlucoseEntriesWithContext(ctx context.Context, fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error)
+	GetInsulinEntries(fromDate, toDate time.Time, count int) (entries Treatments, err error)
+	GetInsulinEntriesWithContext(ctx context.Context, fromDate, toDate time.Time, count int) (entries Treatments, err error)
 }
 
 type nightscout struct {
@@ -149,6 +176,47 @@ func NewWithConfig(config *Config) (Client, error) {
 		client:   http.DefaultClient,
 		apiToken: config.APIToken,
 	}, nil
+}
+
+func (ns *nightscout) GetInsulinEntries(fromDate, toDate time.Time, count int) (entries Treatments, err error) {
+	return ns.GetInsulinEntriesWithContext(context.Background(), fromDate, toDate, count)
+}
+
+func (ns *nightscout) GetInsulinEntriesWithContext(ctx context.Context, fromDate, toDate time.Time, count int) (entries Treatments, err error) {
+
+	url := ns.baseUrl.JoinPath("api", "v1", "treatments.json")
+	q := url.Query()
+	q.Add("find[created_at][$gte]", fromDate.UTC().Format(time.RFC3339))
+	q.Add("find[created_at][$lte]", toDate.UTC().Format(time.RFC3339))
+	q.Add("find[insulin][$gt]", "0")
+	q.Add("count", strconv.Itoa(count))
+	q.Add("token", ns.apiToken)
+	url.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		return entries, err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := ns.client.Do(req)
+	if err != nil {
+		return entries, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return entries, fmt.Errorf("GetInsulinEntries: bad status code %d", resp.StatusCode)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
+		return entries, err
+	}
+
+	return entries, nil
+
 }
 
 func (ns *nightscout) GetGlucoseEntries(fromDate, toDate time.Time, count int) (entries GlucoseEntries, err error) {

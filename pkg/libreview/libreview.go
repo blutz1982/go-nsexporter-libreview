@@ -7,16 +7,26 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const (
 	RecordNumberIncrement            = 160000000000
 	RecordNumberIncrementUnscheduled = 260000000000
+	RecordNumberIncrementInsulin     = 360000000000
 )
 
+var AllMeasurements = []string{
+	"scheduledContinuousGlucose",
+	"unscheduledContinuousGlucose",
+	"insulin",
+	// "food",
+}
+
 type Client interface {
-	ImportMeasurements(modificators ...MeasuremenModificator) error
+	ImportMeasurements(modificators ...MeasuremenModificator) (sg, usg, ins, food int, err error)
 	Auth(setDevice bool) error
+	LastImported() *time.Time
 }
 
 type libreview struct {
@@ -24,6 +34,7 @@ type libreview struct {
 	apiEndpoint *url.URL
 	client      *http.Client
 	userToken   string
+	lastEntryTS *time.Time
 }
 
 func NewWithConfig(config *Config) Client {
@@ -91,7 +102,7 @@ func (lv *libreview) Auth(setDevice bool) error {
 
 type MeasuremenModificator func(*MeasurementLog)
 
-func WithScheduledGlucoseEntries(entries ScheduledGlucoseEntries) MeasuremenModificator {
+func WithScheduledGlucoseEntries(entries ScheduledContinuousGlucoseEntries) MeasuremenModificator {
 	return func(l *MeasurementLog) {
 		l.ScheduledContinuousGlucoseEntries = entries
 
@@ -104,10 +115,16 @@ func WithUnscheduledGlucoseEntries(entries UnscheduledContinuousGlucoseEntries) 
 	}
 }
 
-func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) error {
+func WithInsulinEntries(entries InsulinEntries) MeasuremenModificator {
+	return func(l *MeasurementLog) {
+		l.InsulinEntries = entries
+	}
+}
+
+func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (sg, usg, ins, food int, err error) {
 
 	if len(modificators) == 0 {
-		return nil
+		return
 	}
 
 	m := &Measurements{
@@ -159,10 +176,10 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) e
 				BloodGlucoseEntries:                 []interface{}{},
 				GenericEntries:                      []interface{}{},
 				KetoneEntries:                       []interface{}{},
-				ScheduledContinuousGlucoseEntries:   []*ScheduledContinuousGlucoseEntry{},
-				InsulinEntries:                      []interface{}{},
+				ScheduledContinuousGlucoseEntries:   ScheduledContinuousGlucoseEntries{},
+				InsulinEntries:                      InsulinEntries{},
 				FoodEntries:                         []interface{}{},
-				UnscheduledContinuousGlucoseEntries: []*UnscheduledContinuousGlucoseEntry{},
+				UnscheduledContinuousGlucoseEntries: UnscheduledContinuousGlucoseEntries{},
 			},
 		},
 	}
@@ -173,12 +190,12 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) e
 
 	body := new(bytes.Buffer)
 	if err := json.NewEncoder(body).Encode(m); err != nil {
-		return err
+		return 0, 0, 0, 0, err
 	}
 
 	resp, err := lv.client.Post(lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), "application/json", body)
 	if err != nil {
-		return err
+		return 0, 0, 0, 0, err
 	}
 	defer resp.Body.Close()
 
@@ -189,18 +206,34 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) e
 	// fmt.Println(string(data))
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)
+		return 0, 0, 0, 0, fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)
 	}
 
 	exportResp := new(LibreViewExportResp)
 
 	if err := json.NewDecoder(resp.Body).Decode(exportResp); err != nil {
-		return err
+		return 0, 0, 0, 0, err
 	}
 
 	if exportResp.Status != 0 {
-		return fmt.Errorf("Libreview post measurements: bad status code %d", exportResp.Status)
+		return 0, 0, 0, 0, fmt.Errorf("Libreview post measurements: bad status code %d", exportResp.Status)
 	}
 
-	return nil
+	e, ok := m.DeviceData.MeasurementLog.ScheduledContinuousGlucoseEntries.Last()
+	if ok {
+		lv.lastEntryTS = &e.Timestamp
+	}
+
+	// Stub
+	// For some reason the API does not return exportResp.Result.MeasurementCounts
+	sg = len(m.DeviceData.MeasurementLog.ScheduledContinuousGlucoseEntries)
+	usg = len(m.DeviceData.MeasurementLog.UnscheduledContinuousGlucoseEntries)
+	ins = len(m.DeviceData.MeasurementLog.InsulinEntries)
+	food = len(m.DeviceData.MeasurementLog.FoodEntries)
+
+	return
+}
+
+func (lv *libreview) LastImported() *time.Time {
+	return lv.lastEntryTS
 }

@@ -44,6 +44,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		setDevice         bool
 		tsLayout          string
 		lastTimestampFile string
+		measurements      []string
 	)
 
 	cmd := &cobra.Command{
@@ -68,6 +69,29 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			nsInsulinEntries, err := ns.GetInsulinEntriesWithContext(ctx, dateFrom, dateTo, nightscout.MaxEnties)
+			if err != nil {
+				return err
+			}
+
+			log.Info().
+				Int("count", nsInsulinEntries.Len()).
+				Time("fromDate", dateFrom).
+				Time("toDate", dateTo).
+				Msg("Get insulin entries from Nightscout")
+
+			var libreInsulinEntries libreview.InsulinEntries
+
+			nsInsulinEntries.Visit(func(e *nightscout.Treatment, _ error) error {
+				libreInsulinEntries.Append(transform.NSToLibreInsulinEntry(e))
+
+				log.Debug().
+					Time("ts", e.CreatedAt.Local()).
+					Int("insulin", e.Insulin).
+					Msg("Insulin entry")
+				return nil
+			})
 
 			nsGlucoseEntries, err := ns.GetGlucoseEntriesWithContext(ctx, dateFrom, dateTo, nightscout.MaxEnties)
 			if err != nil {
@@ -98,7 +122,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				Time("toDate", dateTo).
 				Msg("Get scheduled glucose entries from Nightscout")
 
-			var libreScheduledGlucoseEntries libreview.ScheduledGlucoseEntries
+			var libreScheduledGlucoseEntries libreview.ScheduledContinuousGlucoseEntries
 			nsGlucoseEntries.Visit(func(e *nightscout.GlucoseEntry, err error) error {
 				libreScheduledGlucoseEntries.Append(transform.NSToLibreScheduledGlucoseEntry(e))
 				log.Debug().
@@ -137,12 +161,29 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 			})
 
 			log.Info().
-				Int("scheduledGlucoseEntries", len(libreScheduledGlucoseEntries)).
-				Int("unscheduledGlucoseEntries", len(libreUnscheduledGlucoseEntries)).
+				Strs("measurements", measurements).
 				Msg("Measurements to export")
 
-			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 {
-				log.Info().Msg("Nothing to post")
+			measurementMap := map[string]libreview.MeasuremenModificator{
+				"scheduledContinuousGlucose":   libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
+				"unscheduledContinuousGlucose": libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
+				"insulin":                      libreview.WithInsulinEntries(libreInsulinEntries),
+			}
+
+			var modificators []libreview.MeasuremenModificator
+
+			for _, m := range measurements {
+				modificator, ok := measurementMap[m]
+				if ok {
+					modificators = append(modificators, modificator)
+				}
+
+			}
+
+			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 || len(modificators) == 0 {
+				log.Info().
+					Bool("dry-run", dryRun).
+					Msg("Nothing to post")
 				return nil
 			}
 
@@ -152,22 +193,27 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			if err := lv.ImportMeasurements(
-				libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
-				libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
-			); err != nil {
+			sg, usg, ins, food, err := lv.ImportMeasurements(modificators...)
+			if err != nil {
 				return err
 			}
 
 			log.Info().
+				Int("scheduledGlucoseEntries", sg).
+				Int("unscheduledGlucoseEntries", usg).
+				Int("insulin", ins).
+				Int("food", food).
 				Msg("Export measurements success")
 
-			lastEntry, ok := libreScheduledGlucoseEntries.Last()
-			if ok && len(lastTimestampFile) > 0 && !dryRun {
-				if err := saveTS(lastTimestampFile, lastEntry.Timestamp); err != nil {
+			lastTS := lv.LastImported()
+			if lastTS != nil && len(lastTimestampFile) > 0 && !dryRun {
+				if err := saveTS(lastTimestampFile, *lastTS); err != nil {
 					return err
 				}
-				log.Info().Time("ts", lastEntry.Timestamp).Msg("Last scheduled glucose entry timestamp")
+				log.Info().
+					Time("ts", *lastTS).
+					Str("timestampFile", lastTimestampFile).
+					Msg("Last scheduled glucose entry timestamp")
 			}
 
 			return nil
@@ -185,6 +231,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	fs.BoolVar(&dryRun, "dry-run", false, "Do not post measurement to LibreView")
 	fs.BoolVar(&setDevice, "set-device", true, "Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink)")
 	fs.StringVar(&lastTimestampFile, "last-ts-file", "", "Path to last timestamp file (for example ./last.ts )")
+	fs.StringSliceVar(&measurements, "measurements", libreview.AllMeasurements, "measurements to upload")
 
 	return cmd
 }

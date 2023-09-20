@@ -115,11 +115,11 @@ type ScheduledContinuousGlucoseEntry struct {
 	Timestamp          time.Time          `json:"timestamp"`
 }
 
-type ScheduledGlucoseEntries []*ScheduledContinuousGlucoseEntry
+type ScheduledContinuousGlucoseEntries []*ScheduledContinuousGlucoseEntry
 
 type VisitorFunc func(*ScheduledContinuousGlucoseEntry, error) error
 
-func (es ScheduledGlucoseEntries) Last() (*ScheduledContinuousGlucoseEntry, bool) {
+func (es ScheduledContinuousGlucoseEntries) Last() (*ScheduledContinuousGlucoseEntry, bool) {
 	var entry *ScheduledContinuousGlucoseEntry
 	es.Visit(func(e *ScheduledContinuousGlucoseEntry, _ error) error {
 		if entry == nil {
@@ -135,7 +135,7 @@ func (es ScheduledGlucoseEntries) Last() (*ScheduledContinuousGlucoseEntry, bool
 	return entry, (entry != nil)
 }
 
-func (es ScheduledGlucoseEntries) Visit(fn VisitorFunc) error {
+func (es ScheduledContinuousGlucoseEntries) Visit(fn VisitorFunc) error {
 	var err error
 	for _, entry := range es {
 		if err = fn(entry, err); err != nil {
@@ -145,7 +145,7 @@ func (es ScheduledGlucoseEntries) Visit(fn VisitorFunc) error {
 	return nil
 }
 
-func (es ScheduledGlucoseEntries) Filter(fn func(*ScheduledContinuousGlucoseEntry) bool) (result ScheduledGlucoseEntries) {
+func (es ScheduledContinuousGlucoseEntries) Filter(fn func(*ScheduledContinuousGlucoseEntry) bool) (result ScheduledContinuousGlucoseEntries) {
 	es.Visit(func(e *ScheduledContinuousGlucoseEntry, _ error) error {
 		if fn(e) {
 			result.Append(e)
@@ -155,8 +155,26 @@ func (es ScheduledGlucoseEntries) Filter(fn func(*ScheduledContinuousGlucoseEntr
 	return result
 }
 
-func (r *ScheduledGlucoseEntries) Append(e *ScheduledContinuousGlucoseEntry) {
+func (r *ScheduledContinuousGlucoseEntries) Append(e *ScheduledContinuousGlucoseEntry) {
 	*r = append(*r, e)
+}
+
+type InsulinExtendedProperties struct {
+	FactoryTimestamp time.Time `json:"factoryTimestamp"`
+}
+
+type InsulinEntry struct {
+	ExtendedProperties InsulinExtendedProperties `json:"extendedProperties"`
+	RecordNumber       int64                     `json:"recordNumber"`
+	Timestamp          time.Time                 `json:"timestamp"`
+	Units              int                       `json:"units"`
+	InsulinType        string                    `json:"insulinType"`
+}
+
+type InsulinEntries []*InsulinEntry
+
+func (ies *InsulinEntries) Append(e *InsulinEntry) {
+	*ies = append(*ies, e)
 }
 
 type FactoryConfig struct {
@@ -191,14 +209,14 @@ type Device struct {
 }
 
 type MeasurementLog struct {
-	Capabilities                        []string                             `json:"capabilities"`
-	BloodGlucoseEntries                 []any                                `json:"bloodGlucoseEntries"`
-	GenericEntries                      []any                                `json:"genericEntries"`
-	KetoneEntries                       []any                                `json:"ketoneEntries"`
-	ScheduledContinuousGlucoseEntries   []*ScheduledContinuousGlucoseEntry   `json:"scheduledContinuousGlucoseEntries"`
-	InsulinEntries                      []any                                `json:"insulinEntries"`
-	FoodEntries                         []any                                `json:"foodEntries"`
-	UnscheduledContinuousGlucoseEntries []*UnscheduledContinuousGlucoseEntry `json:"unscheduledContinuousGlucoseEntries"`
+	Capabilities                        []string                            `json:"capabilities"`
+	BloodGlucoseEntries                 []any                               `json:"bloodGlucoseEntries"`
+	GenericEntries                      []any                               `json:"genericEntries"`
+	KetoneEntries                       []any                               `json:"ketoneEntries"`
+	ScheduledContinuousGlucoseEntries   ScheduledContinuousGlucoseEntries   `json:"scheduledContinuousGlucoseEntries"`
+	InsulinEntries                      InsulinEntries                      `json:"insulinEntries"`
+	FoodEntries                         []any                               `json:"foodEntries"`
+	UnscheduledContinuousGlucoseEntries UnscheduledContinuousGlucoseEntries `json:"unscheduledContinuousGlucoseEntries"`
 }
 
 type DeviceData struct {

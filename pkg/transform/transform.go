@@ -41,6 +41,18 @@ func NSToLibreUnscheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Uns
 	}
 }
 
+func NSToLibreInsulinEntry(e *nightscout.Treatment) *libreview.InsulinEntry {
+	return &libreview.InsulinEntry{
+		ExtendedProperties: libreview.InsulinExtendedProperties{
+			FactoryTimestamp: e.CreatedAt,
+		},
+		RecordNumber: libreview.RecordNumberIncrementInsulin + e.CreatedAt.Unix(),
+		Timestamp:    e.CreatedAt.Local(),
+		Units:        e.Insulin,
+		InsulinType:  "RapidActing",
+	}
+}
+
 // https://github.com/nightscout/cgm-remote-monitor/blob/46418c7ff275ae80de457209c1686811e033b5dd/lib/plugins/direction.js#L53
 // TODO: find out all possible values ​​for Libre TrendArrow field
 

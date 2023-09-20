@@ -17,6 +17,7 @@ type file struct {
 }
 
 type EnvSettings struct {
+	appName    string
 	version    string
 	ConfigPath string
 	Debug      bool
@@ -78,6 +79,14 @@ func (s *EnvSettings) Version() string {
 
 func (s *EnvSettings) SetVersion(version string) {
 	s.version = version
+}
+
+func (s *EnvSettings) AppName() string {
+	return s.appName
+}
+
+func (s *EnvSettings) SetAppName(name string) {
+	s.appName = name
 }
 
 func (s *EnvSettings) Nightscout() *nightscout.Config {

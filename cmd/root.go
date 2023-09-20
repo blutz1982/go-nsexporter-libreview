@@ -48,7 +48,7 @@ func info(format string, v ...interface{}) {
 func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:          "nsexport",
+		Use:          settings.AppName(),
 		Short:        "nightscout exporter",
 		Version:      settings.Version(),
 		PreRun:       preRun(),
