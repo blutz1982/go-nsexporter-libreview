@@ -14,13 +14,14 @@ const (
 	RecordNumberIncrement            = 160000000000
 	RecordNumberIncrementUnscheduled = 260000000000
 	RecordNumberIncrementInsulin     = 360000000000
+	RecordNumberIncrementFood        = 460000000000
 )
 
 var AllMeasurements = []string{
 	"scheduledContinuousGlucose",
 	"unscheduledContinuousGlucose",
 	"insulin",
-	// "food",
+	"food",
 }
 
 type Client interface {
@@ -121,6 +122,12 @@ func WithInsulinEntries(entries InsulinEntries) MeasuremenModificator {
 	}
 }
 
+func WithFoodEntries(entries FoodEntries) MeasuremenModificator {
+	return func(l *MeasurementLog) {
+		l.FoodEntries = entries
+	}
+}
+
 func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (sg, usg, ins, food int, err error) {
 
 	if len(modificators) == 0 {
@@ -178,7 +185,7 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 				KetoneEntries:                       []interface{}{},
 				ScheduledContinuousGlucoseEntries:   ScheduledContinuousGlucoseEntries{},
 				InsulinEntries:                      InsulinEntries{},
-				FoodEntries:                         []interface{}{},
+				FoodEntries:                         FoodEntries{},
 				UnscheduledContinuousGlucoseEntries: UnscheduledContinuousGlucoseEntries{},
 			},
 		},

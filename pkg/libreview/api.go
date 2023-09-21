@@ -1,6 +1,8 @@
 package libreview
 
-import "time"
+import (
+	"time"
+)
 
 type AuthResponse struct {
 	Status int `json:"status"`
@@ -159,16 +161,30 @@ func (r *ScheduledContinuousGlucoseEntries) Append(e *ScheduledContinuousGlucose
 	*r = append(*r, e)
 }
 
-type InsulinExtendedProperties struct {
+type TreatmentExtendedProperties struct {
 	FactoryTimestamp time.Time `json:"factoryTimestamp"`
 }
 
+type FoodEntry struct {
+	ExtendedProperties TreatmentExtendedProperties `json:"extendedProperties"`
+	RecordNumber       int64                       `json:"recordNumber"`
+	Timestamp          time.Time                   `json:"timestamp"`
+	GramsCarbs         int                         `json:"gramsCarbs"`
+	FoodType           string                      `json:"foodType"`
+}
+
+type FoodEntries []*FoodEntry
+
+func (fes *FoodEntries) Append(e *FoodEntry) {
+	*fes = append(*fes, e)
+}
+
 type InsulinEntry struct {
-	ExtendedProperties InsulinExtendedProperties `json:"extendedProperties"`
-	RecordNumber       int64                     `json:"recordNumber"`
-	Timestamp          time.Time                 `json:"timestamp"`
-	Units              int                       `json:"units"`
-	InsulinType        string                    `json:"insulinType"`
+	ExtendedProperties TreatmentExtendedProperties `json:"extendedProperties"`
+	RecordNumber       int64                       `json:"recordNumber"`
+	Timestamp          time.Time                   `json:"timestamp"`
+	Units              int                         `json:"units"`
+	InsulinType        string                      `json:"insulinType"`
 }
 
 type InsulinEntries []*InsulinEntry
@@ -215,7 +231,7 @@ type MeasurementLog struct {
 	KetoneEntries                       []any                               `json:"ketoneEntries"`
 	ScheduledContinuousGlucoseEntries   ScheduledContinuousGlucoseEntries   `json:"scheduledContinuousGlucoseEntries"`
 	InsulinEntries                      InsulinEntries                      `json:"insulinEntries"`
-	FoodEntries                         []any                               `json:"foodEntries"`
+	FoodEntries                         FoodEntries                         `json:"foodEntries"`
 	UnscheduledContinuousGlucoseEntries UnscheduledContinuousGlucoseEntries `json:"unscheduledContinuousGlucoseEntries"`
 }
 

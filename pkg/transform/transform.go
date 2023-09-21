@@ -43,13 +43,25 @@ func NSToLibreUnscheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Uns
 
 func NSToLibreInsulinEntry(e *nightscout.Treatment) *libreview.InsulinEntry {
 	return &libreview.InsulinEntry{
-		ExtendedProperties: libreview.InsulinExtendedProperties{
+		ExtendedProperties: libreview.TreatmentExtendedProperties{
 			FactoryTimestamp: e.CreatedAt,
 		},
 		RecordNumber: libreview.RecordNumberIncrementInsulin + e.CreatedAt.Unix(),
 		Timestamp:    e.CreatedAt.Local(),
 		Units:        e.Insulin,
 		InsulinType:  "RapidActing",
+	}
+}
+
+func NSToLibreFoodEntry(e *nightscout.Treatment) *libreview.FoodEntry {
+	return &libreview.FoodEntry{
+		ExtendedProperties: libreview.TreatmentExtendedProperties{
+			FactoryTimestamp: e.CreatedAt,
+		},
+		RecordNumber: libreview.RecordNumberIncrementFood + e.CreatedAt.Unix(),
+		Timestamp:    e.CreatedAt.Local(),
+		GramsCarbs:   e.Carbs,
+		FoodType:     "Unknown",
 	}
 }
 

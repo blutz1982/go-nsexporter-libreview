@@ -60,19 +60,39 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			ns, err := nightscout.NewWithConfig(settings.Nightscout())
-			if err != nil {
-				return err
-			}
-
 			dateFrom, dateTo, err := getDateRange(fromDate, toDate, dateOffset, tsLayout)
 			if err != nil {
 				return err
 			}
 
-			nsInsulinEntries, err := ns.GetInsulinEntriesWithContext(ctx, dateFrom, dateTo, nightscout.MaxEnties)
+			var lastTS *time.Time
+
+			if len(lastTimestampFile) > 0 {
+				lastTS, err = getLastTS(lastTimestampFile)
+				if err != nil {
+					return err
+				}
+			}
+
+			opts := nightscout.GetOptions{
+				DateFrom: dateFrom,
+				DateTo:   dateTo,
+				Count:    nightscout.MaxEnties,
+				APIToken: settings.Nightscout().APIToken,
+			}
+
+			ns, err := nightscout.New(settings.Nightscout().URL)
 			if err != nil {
 				return err
+			}
+
+			nsInsulinEntries, err := ns.Treatments(nightscout.Insulin).Get(ctx, opts)
+			if err != nil {
+				return err
+			}
+
+			if lastTS != nil {
+				nsInsulinEntries = nsInsulinEntries.Filter(nightscout.TreatmentOnlyAfter(lastTS.UTC().Add(time.Minute)))
 			}
 
 			log.Info().
@@ -83,30 +103,49 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 
 			var libreInsulinEntries libreview.InsulinEntries
 
-			nsInsulinEntries.Visit(func(e *nightscout.Treatment, _ error) error {
-				libreInsulinEntries.Append(transform.NSToLibreInsulinEntry(e))
+			nsInsulinEntries.Visit(func(t *nightscout.Treatment, _ error) error {
+				libreInsulinEntries.Append(transform.NSToLibreInsulinEntry(t))
 
 				log.Debug().
-					Time("ts", e.CreatedAt.Local()).
-					Int("insulin", e.Insulin).
+					Time("ts", t.CreatedAt.Local()).
+					Int("insulin", t.Insulin).
 					Msg("Insulin entry")
 				return nil
 			})
 
-			nsGlucoseEntries, err := ns.GetGlucoseEntriesWithContext(ctx, dateFrom, dateTo, nightscout.MaxEnties)
+			nsCarbsEntries, err := ns.Treatments(nightscout.Carbs).Get(ctx, opts)
 			if err != nil {
 				return err
 			}
 
-			if len(lastTimestampFile) > 0 {
-				lastTS, err := getLastTS(lastTimestampFile)
-				if err != nil {
-					return err
-				}
+			if lastTS != nil {
+				nsCarbsEntries = nsCarbsEntries.Filter(nightscout.TreatmentOnlyAfter(lastTS.UTC().Add(time.Minute)))
+			}
 
-				if lastTS != nil {
-					nsGlucoseEntries = nsGlucoseEntries.Filter(nightscout.OnlyAfter(lastTS.UTC().Add(time.Minute)))
-				}
+			log.Info().
+				Int("count", nsCarbsEntries.Len()).
+				Time("fromDate", dateFrom).
+				Time("toDate", dateTo).
+				Msg("Get food entries from Nightscout")
+
+			var libreFoodEntries libreview.FoodEntries
+
+			nsCarbsEntries.Visit(func(t *nightscout.Treatment, err error) error {
+				libreFoodEntries.Append(transform.NSToLibreFoodEntry(t))
+				log.Debug().
+					Time("ts", t.CreatedAt.Local()).
+					Int("carbs", t.Carbs).
+					Msg("Food entry")
+				return nil
+			})
+
+			nsGlucoseEntries, err := ns.Glucose().Get(ctx, opts)
+			if err != nil {
+				return err
+			}
+
+			if lastTS != nil {
+				nsGlucoseEntries = nsGlucoseEntries.Filter(nightscout.OnlyAfter(lastTS.UTC().Add(time.Minute)))
 			}
 
 			d, err := time.ParseDuration(minInterval)
@@ -168,6 +207,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				"scheduledContinuousGlucose":   libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
 				"unscheduledContinuousGlucose": libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
 				"insulin":                      libreview.WithInsulinEntries(libreInsulinEntries),
+				"food":                         libreview.WithFoodEntries(libreFoodEntries),
 			}
 
 			var modificators []libreview.MeasuremenModificator
@@ -177,7 +217,6 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				if ok {
 					modificators = append(modificators, modificator)
 				}
-
 			}
 
 			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 || len(modificators) == 0 {
@@ -205,7 +244,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				Int("food", food).
 				Msg("Export measurements success")
 
-			lastTS := lv.LastImported()
+			lastTS = lv.LastImported()
 			if lastTS != nil && len(lastTimestampFile) > 0 && !dryRun {
 				if err := saveTS(lastTimestampFile, *lastTS); err != nil {
 					return err
@@ -302,3 +341,13 @@ func getDateRange(fromDateStr, toDateStr, dateOffset, tsLayout string) (fromDate
 	return
 
 }
+
+// measurementMap := map[string]libreview.MeasuremenModificator{
+// 	"scheduledContinuousGlucose":   libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
+// 	"unscheduledContinuousGlucose": libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
+// 	"insulin":                      libreview.WithInsulinEntries(libreInsulinEntries),
+// }
+
+// func getGlucoseEntries(ctx context.Context, ns nightscout.Client) libreview.MeasuremenModificator {
+
+// }
