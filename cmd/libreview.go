@@ -45,6 +45,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		tsLayout          string
 		lastTimestampFile string
 		measurements      []string
+		token             string
 	)
 
 	cmd := &cobra.Command{
@@ -226,22 +227,33 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return nil
 			}
 
-			lv := libreview.NewWithConfig(settings.Libreview())
-
-			if err := lv.Auth(setDevice); err != nil {
+			lv, err := libreview.NewWithConfig(settings.Libreview())
+			if err != nil {
 				return err
 			}
 
-			sg, usg, ins, food, err := lv.ImportMeasurements(modificators...)
+			if len(token) == 0 {
+				if err := lv.Auth(setDevice); err != nil {
+					return err
+				}
+			} else {
+				lv.SetToken(token)
+			}
+
+			log.Debug().
+				Str("token", lv.Token()).
+				Msg("use token")
+
+			resp, err := lv.ImportMeasurements(modificators...)
 			if err != nil {
 				return err
 			}
 
 			log.Info().
-				Int("scheduledGlucoseEntries", sg).
-				Int("unscheduledGlucoseEntries", usg).
-				Int("insulin", ins).
-				Int("food", food).
+				Int("scheduledGlucoseEntries", resp.Result.MeasurementCounts.ScheduledGlucoseCount).
+				Int("unscheduledGlucoseEntries", resp.Result.MeasurementCounts.UnScheduledGlucoseCount).
+				Int("insulin", resp.Result.MeasurementCounts.InsulinCount).
+				Int("food", resp.Result.MeasurementCounts.FoodCount).
 				Msg("Export measurements success")
 
 			lastTS = lv.LastImported()
@@ -271,6 +283,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	fs.BoolVar(&setDevice, "set-device", true, "Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink)")
 	fs.StringVar(&lastTimestampFile, "last-ts-file", "", "Path to last timestamp file (for example ./last.ts )")
 	fs.StringSliceVar(&measurements, "measurements", libreview.AllMeasurements, "measurements to upload")
+	fs.StringVar(&token, "token", "", "use existing token")
 
 	return cmd
 }

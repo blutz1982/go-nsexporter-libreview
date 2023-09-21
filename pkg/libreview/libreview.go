@@ -25,9 +25,11 @@ var AllMeasurements = []string{
 }
 
 type Client interface {
-	ImportMeasurements(modificators ...MeasuremenModificator) (sg, usg, ins, food int, err error)
+	ImportMeasurements(modificators ...MeasuremenModificator) (*LibreViewExportResp, error)
 	Auth(setDevice bool) error
 	LastImported() *time.Time
+	Token() string
+	SetToken(token string)
 }
 
 type libreview struct {
@@ -38,20 +40,29 @@ type libreview struct {
 	lastEntryTS *time.Time
 }
 
-func NewWithConfig(config *Config) Client {
-	return &libreview{
-		client: http.DefaultClient,
-		config: config,
+func (lv *libreview) Token() string {
+	return lv.userToken
+}
+
+func (lv *libreview) SetToken(token string) {
+	lv.userToken = token
+}
+
+func NewWithConfig(config *Config) (Client, error) {
+
+	u, err := url.Parse(config.ImportConfig.APIEndpoint)
+	if err != nil {
+		return nil, err
 	}
+
+	return &libreview{
+		client:      http.DefaultClient,
+		config:      config,
+		apiEndpoint: u,
+	}, nil
 }
 
 func (lv *libreview) Auth(setDevice bool) error {
-	var err error
-
-	lv.apiEndpoint, err = url.Parse(lv.config.ImportConfig.APIEndpoint)
-	if err != nil {
-		return err
-	}
 
 	apiAuth := &APILibreViewAuth{
 		Culture:     lv.config.ImportConfig.Culture,
@@ -74,7 +85,7 @@ func (lv *libreview) Auth(setDevice bool) error {
 	}
 	defer resp.Body.Close()
 
-	//// debug
+	// // debug
 	// data, err := httputil.DumpResponse(resp, true)
 	// if err != nil {
 	// 	return err
@@ -128,7 +139,7 @@ func WithFoodEntries(entries FoodEntries) MeasuremenModificator {
 	}
 }
 
-func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (sg, usg, ins, food int, err error) {
+func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (exportResp *LibreViewExportResp, err error) {
 
 	if len(modificators) == 0 {
 		return
@@ -197,33 +208,33 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 
 	body := new(bytes.Buffer)
 	if err := json.NewEncoder(body).Encode(m); err != nil {
-		return 0, 0, 0, 0, err
+		return nil, err
 	}
 
 	resp, err := lv.client.Post(lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), "application/json", body)
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// data, err := httputil.DumpResponse(resp, true)
 	// if err != nil {
-	// 	return err
+	// 	return nil, err
 	// }
 	// fmt.Println(string(data))
 
 	if resp.StatusCode != 200 {
-		return 0, 0, 0, 0, fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)
+		return nil, fmt.Errorf("Libreview post measurements: bad http status code %d", resp.StatusCode)
 	}
 
-	exportResp := new(LibreViewExportResp)
+	exportResp = new(LibreViewExportResp)
 
 	if err := json.NewDecoder(resp.Body).Decode(exportResp); err != nil {
-		return 0, 0, 0, 0, err
+		return nil, err
 	}
 
 	if exportResp.Status != 0 {
-		return 0, 0, 0, 0, fmt.Errorf("Libreview post measurements: bad status code %d", exportResp.Status)
+		return nil, fmt.Errorf("Libreview post measurements: bad status code %d", exportResp.Status)
 	}
 
 	e, ok := m.DeviceData.MeasurementLog.ScheduledContinuousGlucoseEntries.Last()
@@ -233,10 +244,10 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 
 	// Stub
 	// For some reason the API does not return exportResp.Result.MeasurementCounts
-	sg = len(m.DeviceData.MeasurementLog.ScheduledContinuousGlucoseEntries)
-	usg = len(m.DeviceData.MeasurementLog.UnscheduledContinuousGlucoseEntries)
-	ins = len(m.DeviceData.MeasurementLog.InsulinEntries)
-	food = len(m.DeviceData.MeasurementLog.FoodEntries)
+	exportResp.Result.MeasurementCounts.ScheduledGlucoseCount = len(m.DeviceData.MeasurementLog.ScheduledContinuousGlucoseEntries)
+	exportResp.Result.MeasurementCounts.UnScheduledGlucoseCount = len(m.DeviceData.MeasurementLog.UnscheduledContinuousGlucoseEntries)
+	exportResp.Result.MeasurementCounts.InsulinCount = len(m.DeviceData.MeasurementLog.InsulinEntries)
+	exportResp.Result.MeasurementCounts.FoodCount = len(m.DeviceData.MeasurementLog.FoodEntries)
 
 	return
 }

@@ -1,6 +1,7 @@
 package libreview
 
 import (
+	"strings"
 	"time"
 )
 
@@ -273,8 +274,26 @@ type LibreViewExportResp struct {
 			KetoneCount             int `json:"KetoneCount"`
 			TotalCount              int `json:"TotalCount"`
 		} `json:"MeasurementCounts"`
-		ItemCount       int    `json:"ItemCount"`
-		CreatedDateTime string `json:"CreatedDateTime"`
-		SerialNumber    string `json:"SerialNumber"`
+		ItemCount       int             `json:"ItemCount"`
+		CreatedDateTime LibreExportTime `json:"CreatedDateTime"`
+		SerialNumber    string          `json:"SerialNumber"`
 	} `json:"result"`
+}
+
+const LibreExportTimeLayout = "2006-01-02T15:04:05"
+
+type LibreExportTime struct {
+	time.Time
+}
+
+func (t *LibreExportTime) UnmarshalJSON(b []byte) (err error) {
+	s := strings.Trim(string(b), "\"")
+	if s == "null" {
+		t.Time = time.Time{}
+		return
+	}
+
+	t.Time, err = time.Parse(LibreExportTimeLayout, s)
+
+	return
 }
