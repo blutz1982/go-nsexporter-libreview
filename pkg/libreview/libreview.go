@@ -85,7 +85,7 @@ func (lv *libreview) Auth(setDevice bool) error {
 	}
 	defer resp.Body.Close()
 
-	// // debug
+	// debug
 	// data, err := httputil.DumpResponse(resp, true)
 	// if err != nil {
 	// 	return err

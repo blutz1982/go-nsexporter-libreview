@@ -60,7 +60,7 @@ func NSToLibreFoodEntry(e *nightscout.Treatment) *libreview.FoodEntry {
 		},
 		RecordNumber: libreview.RecordNumberIncrementFood + e.CreatedAt.Unix(),
 		Timestamp:    e.CreatedAt.Local(),
-		GramsCarbs:   e.Carbs,
+		GramsCarbs:   int(e.Carbs),
 		FoodType:     "Unknown",
 	}
 }

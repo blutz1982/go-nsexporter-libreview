@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"os"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/transform"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -57,6 +57,10 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
+			if err := settings.LoadConfig(); err != nil {
+				return errors.Wrap(err, "cant load config")
+			}
+
 			if err := validateConfig(); err != nil {
 				return err
 			}
@@ -79,10 +83,14 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				DateFrom: dateFrom,
 				DateTo:   dateTo,
 				Count:    nightscout.MaxEnties,
-				APIToken: settings.Nightscout().APIToken,
 			}
 
-			ns, err := nightscout.New(settings.Nightscout().URL)
+			jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
+			if err != nil {
+				return err
+			}
+
+			ns, err := nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
 			if err != nil {
 				return err
 			}
@@ -109,7 +117,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 
 				log.Debug().
 					Time("ts", t.CreatedAt.Local()).
-					Int("insulin", t.Insulin).
+					Float64("insulin", t.Insulin).
 					Msg("Insulin entry")
 				return nil
 			})
@@ -135,7 +143,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				libreFoodEntries.Append(transform.NSToLibreFoodEntry(t))
 				log.Debug().
 					Time("ts", t.CreatedAt.Local()).
-					Int("carbs", t.Carbs).
+					Float64("carbs", t.Carbs).
 					Msg("Food entry")
 				return nil
 			})
@@ -283,7 +291,12 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	fs.BoolVar(&setDevice, "set-device", true, "Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink)")
 	fs.StringVar(&lastTimestampFile, "last-ts-file", "", "Path to last timestamp file (for example ./last.ts )")
 	fs.StringSliceVar(&measurements, "measurements", libreview.AllMeasurements, "measurements to upload")
-	fs.StringVar(&token, "token", "", "use existing token")
+	fs.StringVar(&token, "token", "", "use existing libreview token (beta)")
+
+	err := fs.MarkHidden("token")
+	if err != nil {
+		panic(err)
+	}
 
 	return cmd
 }

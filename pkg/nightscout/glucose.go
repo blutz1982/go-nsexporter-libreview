@@ -27,15 +27,17 @@ func newGlucose(c Client) *glucose {
 
 func (g glucose) Get(ctx context.Context, opts GetOptions) (result *GlucoseEntries, err error) {
 	result = &GlucoseEntries{}
-	err = g.client.
-		Get().
-		Resource("entries.json").
-		Token(opts.APIToken).
+	r := g.client.Get().
+		Name("entries").
 		Param("find[dateString][$gte]", opts.DateFrom.UTC().Format(time.RFC3339)).
 		Param("find[dateString][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
-		Param("count", strconv.Itoa(opts.Count)).
-		Do(ctx).
-		Into(result)
+		Param("count", strconv.Itoa(opts.Count))
+
+	if len(opts.URLToken) > 0 {
+		r = r.Param("token", opts.URLToken)
+	}
+
+	err = r.Do(ctx).Into(result)
 
 	return
 }

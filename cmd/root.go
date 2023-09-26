@@ -59,9 +59,6 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 	settings.AddCommonFlags(fs)
 
 	cobra.OnInitialize(func() {
-		if err := settings.LoadConfig(); err != nil {
-			log.Fatal().Err(err).Msg("cant load config")
-		}
 
 		if len(settings.Timezone) == 0 {
 			return
@@ -78,6 +75,7 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 
 	cmd.AddCommand(
 		newLibreCommand(ctx),
+		newConfigCommand(ctx),
 	)
 
 	return cmd

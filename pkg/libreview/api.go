@@ -184,7 +184,7 @@ type InsulinEntry struct {
 	ExtendedProperties TreatmentExtendedProperties `json:"extendedProperties"`
 	RecordNumber       int64                       `json:"recordNumber"`
 	Timestamp          time.Time                   `json:"timestamp"`
-	Units              int                         `json:"units"`
+	Units              float64                     `json:"units"`
 	InsulinType        string                      `json:"insulinType"`
 }
 

@@ -11,6 +11,35 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const DefaultConfigYaml string = `
+libreview:
+  auth:
+    password: ""
+    username: ""
+  importConfig:
+    apiEndpoint: https://api.libreview.ru
+    culture: ru-RU
+    deviceSettings:
+      firmwareVersion: 2.8.2
+      glucoseTargetRangeHighInMgPerDl: 144
+      glucoseTargetRangeLowInMgPerDl: 90
+      hardwareDescriptor: Redmi Note 8 Pro
+      hardwareName: Xiaomi
+      modelName: com.freestylelibre.app.ru
+      osType: Android
+      osVersion: "29"
+      selectedCarbType: grams of carbs
+      selectedLanguage: ru_RU
+      selectedTimeFormat: 24hr
+      uniqueIdentifier: ""
+    domain: Libreview
+    gatewayType: FSLibreLink.Android
+    uom: mmol/L
+nightscout:
+  apiToken: ""
+  url: ""
+`
+
 type file struct {
 	Nightscout *nightscout.Config `yaml:"nightscout"`
 	Libreview  *libreview.Config  `yaml:"libreview"`
@@ -61,9 +90,7 @@ func (s *EnvSettings) LoadConfig() error {
 	}
 
 	if err := yaml.Unmarshal(b, f); err != nil {
-		fmt.Println("bad yaml: ", s.ConfigPath)
-		fmt.Println("---")
-		fmt.Println(string(b))
+		fmt.Printf("bad yaml: %s\n---\n%s\n", s.ConfigPath, string(b))
 		return err
 	}
 
@@ -71,6 +98,16 @@ func (s *EnvSettings) LoadConfig() error {
 
 	return nil
 
+}
+
+func (s *EnvSettings) SaveConfig() error {
+
+	data, err := yaml.Marshal(s.config)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(s.ConfigPath, data, 0644)
 }
 
 func (s *EnvSettings) Version() string {
@@ -95,4 +132,8 @@ func (s *EnvSettings) Nightscout() *nightscout.Config {
 
 func (s *EnvSettings) Libreview() *libreview.Config {
 	return s.config.Libreview
+}
+
+func (s *EnvSettings) SetNightscout(cfg *nightscout.Config) {
+	s.config.Nightscout = cfg
 }

@@ -1,6 +1,7 @@
 package nightscout
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"time"
@@ -15,7 +16,7 @@ const (
 )
 
 type GetOptions struct {
-	APIToken string
+	URLToken string
 	DateFrom time.Time
 	DateTo   time.Time
 	Count    int
@@ -29,12 +30,53 @@ type Client interface {
 
 type nightscout struct {
 	restClient RestInterface
-	// apiToken   string
+	// urlToken   string
 }
 
-func New(host string) (Client, error) {
+type TokenResponse struct {
+	Token            string     `json:"token"`
+	Sub              string     `json:"sub"`
+	PermissionGroups [][]string `json:"permissionGroups"`
+	Iat              int        `json:"iat"`
+	Exp              int        `json:"exp"`
+}
 
-	u, err := url.Parse(host)
+func NewJWTToken(baseUrl string, urlToken string) (string, error) {
+	u, err := url.Parse(baseUrl)
+	if err != nil {
+		return "", err
+	}
+
+	tokenResp := new(TokenResponse)
+
+	err = NewRESTClient(u, "/api/v2", http.DefaultClient).
+		Get().
+		Resource("authorization/request").
+		Name(urlToken).
+		Do(context.Background()).
+		Into(tokenResp)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenResp.Token, nil
+}
+
+func NewWithJWTToken(baseUrl, JWTToken string) (Client, error) {
+
+	u, err := url.Parse(baseUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nightscout{
+		restClient: NewRESTClient(u, "api/v1", http.DefaultClient, WithJWTToken(JWTToken)),
+	}, nil
+}
+
+func New(baseUrl string) (Client, error) {
+
+	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,7 @@ Flags:
       --dry-run                Do not post measurement to LibreView
   -h, --help                   help for libreview
       --last-ts-file string    Path to last timestamp file (for example ./last.ts )
-      --measurements strings   measurements to upload (default [scheduledContinuousGlucose,unscheduledContinuousGlucose,insulin])
+      --measurements strings   measurements to upload (default [scheduledContinuousGlucose,unscheduledContinuousGlucose,insulin,food])
       --min-interval string    Filter: minimum sample interval (duration) (default "10m10s")
       --scan-frequency int     Average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30% (default 90)
       --set-device             Set this app as main user device. Necessary if the main device was set by another application (e.g. Librelink) (default true)
@@ -52,9 +52,29 @@ flag **--measurements** determines a set of metrics that should be exported to L
 
 # config
 
-see config.yaml
+```bash
+Usage:
+  nsexport config [command]
+
+Available Commands:
+  default     generate default config
+  print       print config
+  set         set config key
+
+Flags:
+  -h, --help   help for config
+
+Global Flags:
+  -c, --config string     path to config (default "config.yaml")
+  -d, --debug             toggle debug
+      --timezone string   override timezone
+```
+
+## more info [config.yaml](https://github.com/blutz1982/go-nsexporter-libreview/blob/main/config.yaml)
 
 # example
+
+## export to LibreView
 
 ```bash
 
@@ -63,6 +83,25 @@ nsexport libreview --config config.yaml --date-from='2023-09-08T10:50' --date-to
 
 #  time offset with last timestamp file
 nsexport libreview --config config.yaml --date-offset=24h --last-ts-file=./last.ts
+
+```
+
+## configuring
+
+```bash
+
+# generate default config (in work dir with name "config.yaml", optional)
+nsexport config default --config config.yaml
+
+#  set some config keys
+nsexport config set nightscout.url https://your.nightscout.domain
+nsexport config set nightscout.apiToken XXXXXXXXX
+nsexport config set libreview.auth.username your@e-main.address
+nsexport config set libreview.auth.password XXXXXXXX
+nsexport config set libreview.importConfig.deviceSettings.uniqueIdentifier xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# view your config (in work dir with name "config.yaml", optional)
+nsexport config print --config config.yaml
 
 ```
 

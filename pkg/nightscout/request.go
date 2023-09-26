@@ -23,7 +23,8 @@ type Request struct {
 	params     url.Values
 	headers    http.Header
 
-	resource string
+	resourceName string
+	resource     string
 
 	// output
 	err error
@@ -53,16 +54,21 @@ func NewRequest(c *RESTClient) *Request {
 		pathPrefix: pathPrefix,
 	}
 
+	if len(c.token) > 0 {
+		r.SetHeader("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	}
+
+	if len(c.contentType) > 0 {
+		r.SetHeader("Content-Type", c.contentType)
+		r.SetHeader("Accept", c.contentType)
+	}
+
 	return r
 }
 
 func (r *Request) Verb(verb string) *Request {
 	r.verb = verb
 	return r
-}
-
-func (r *Request) Token(token string) *Request {
-	return r.Param("token", token)
 }
 
 func (r *Request) Resource(resource string) *Request {
@@ -75,6 +81,26 @@ func (r *Request) Resource(resource string) *Request {
 	}
 
 	r.resource = resource
+	return r
+}
+
+func (r *Request) Name(resourceName string) *Request {
+	if r.err != nil {
+		return r
+	}
+	if len(resourceName) == 0 {
+		r.err = fmt.Errorf("resource name may not be empty")
+		return r
+	}
+	if len(r.resourceName) != 0 {
+		r.err = fmt.Errorf("resource name already set to %q, cannot change to %q", r.resourceName, resourceName)
+		return r
+	}
+	if msgs := IsValidPathSegmentName(resourceName); len(msgs) != 0 {
+		r.err = fmt.Errorf("invalid resource name %q: %v", resourceName, msgs)
+		return r
+	}
+	r.resourceName = resourceName
 	return r
 }
 
@@ -91,6 +117,17 @@ func (r *Request) Param(paramName, s string) *Request {
 		return r
 	}
 	return r.setParam(paramName, s)
+}
+
+func (r *Request) SetHeader(key string, values ...string) *Request {
+	if r.headers == nil {
+		r.headers = http.Header{}
+	}
+	r.headers.Del(key)
+	for _, value := range values {
+		r.headers.Add(key, value)
+	}
+	return r
 }
 
 type Result struct {
@@ -214,6 +251,10 @@ func (r *Request) URL() *url.URL {
 		p = path.Join(p, strings.ToLower(r.resource))
 	}
 
+	if len(r.resourceName) != 0 {
+		p = path.Join(p, r.resourceName)
+	}
+
 	finalURL := &url.URL{}
 	if r.c.base != nil {
 		*finalURL = *r.c.base
@@ -229,4 +270,24 @@ func (r *Request) URL() *url.URL {
 
 	finalURL.RawQuery = query.Encode()
 	return finalURL
+}
+
+var NameMayNotBe = []string{".", ".."}
+var NameMayNotContain = []string{"/", "%"}
+
+func IsValidPathSegmentName(name string) []string {
+	for _, illegalName := range NameMayNotBe {
+		if name == illegalName {
+			return []string{fmt.Sprintf(`may not be '%s'`, illegalName)}
+		}
+	}
+
+	var errors []string
+	for _, illegalContent := range NameMayNotContain {
+		if strings.Contains(name, illegalContent) {
+			errors = append(errors, fmt.Sprintf(`may not contain '%s'`, illegalContent))
+		}
+	}
+
+	return errors
 }
