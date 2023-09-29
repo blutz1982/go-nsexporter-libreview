@@ -41,15 +41,21 @@ func NSToLibreUnscheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Uns
 	}
 }
 
-func NSToLibreInsulinEntry(e *nightscout.Treatment) *libreview.InsulinEntry {
+var LongActingInsulinMap = map[bool]string{
+	true:  "LongActing",
+	false: "RapidActing",
+}
+
+func NSToLibreInsulinEntry(t *nightscout.Treatment) *libreview.InsulinEntry {
+
 	return &libreview.InsulinEntry{
 		ExtendedProperties: libreview.TreatmentExtendedProperties{
-			FactoryTimestamp: e.CreatedAt,
+			FactoryTimestamp: t.CreatedAt,
 		},
-		RecordNumber: libreview.RecordNumberIncrementInsulin + e.CreatedAt.Unix(),
-		Timestamp:    e.CreatedAt.Local(),
-		Units:        e.Insulin,
-		InsulinType:  "RapidActing",
+		RecordNumber: libreview.RecordNumberIncrementInsulin + t.CreatedAt.Unix(),
+		Timestamp:    t.CreatedAt.Local(),
+		Units:        t.Insulin,
+		InsulinType:  LongActingInsulinMap[t.InsulinInjections.IsLongActing()],
 	}
 }
 

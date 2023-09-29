@@ -2,36 +2,38 @@ package nightscout
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/rest"
 )
 
 type TreatmentsGetter interface {
-	Treatments(kind string) TreatmentInterface
+	Treatments() TreatmentInterface
 }
 
 type TreatmentInterface interface {
 	Get(ctx context.Context, opts GetOptions) (*Treatments, error)
+	Create(ctx context.Context, treatment *Treatment) (result Treatments, err error)
+	Delete(ctx context.Context, id string) error
 }
 
 type treatments struct {
-	client RestInterface
-	kind   string
+	client rest.Interface
 }
 
-func (t treatments) Get(ctx context.Context, opts GetOptions) (result *Treatments, err error) {
+func (t *treatments) Get(ctx context.Context, opts GetOptions) (result *Treatments, err error) {
 	result = &Treatments{}
 	r := t.client.Get().
 		Name("treatments").
 		Param("find[created_at][$gte]", opts.DateFrom.UTC().Format(time.RFC3339)).
 		Param("find[created_at][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
-		Param(fmt.Sprintf("find[%s][$gt]", t.kind), "0").
+		Param(fmt.Sprintf("find[%s][$gt]", opts.Kind), "0").
 		Param("count", strconv.Itoa(opts.Count))
-
-	if len(opts.URLToken) > 0 {
-		r = r.Param("token", opts.URLToken)
-	}
 
 	err = r.Do(ctx).Into(result)
 
@@ -39,19 +41,145 @@ func (t treatments) Get(ctx context.Context, opts GetOptions) (result *Treatment
 
 }
 
+func (t *treatments) Create(ctx context.Context, treatment *Treatment) (result Treatments, err error) {
+
+	err = t.client.Post().
+		Name("treatments").
+		Body(treatment).
+		Do(ctx).
+		Into(&result)
+
+	return
+
+}
+
+func (t *treatments) Delete(ctx context.Context, id string) error {
+	return t.client.Delete().
+		Resource("treatments").
+		Name(id).
+		Do(ctx).
+		Error()
+}
+
 // newTreatments returns a Treatments
-func newTreatments(c Client, kind string) *treatments {
+func newTreatments(c Client) *treatments {
 	return &treatments{
 		client: c.RESTClient(),
-		kind:   kind,
 	}
 }
 
+type InsulinInjections string
+
+var reLongActingInsulin = regexp.MustCompile(`^.*(Lantus|Toujeo|Tresiba).*$`)
+
+func (ii InsulinInjections) IsLongActing() bool {
+	return reLongActingInsulin.MatchString(ii.String())
+}
+
+func (ii InsulinInjections) String() string {
+	return string(ii)
+}
+
+func NewInsulinInjections(units float64, insType InsulinType) InsulinInjections {
+	return InsulinInjections(fmt.Sprintf("[{\"insulin\":\"%s\",\"units\":%.1f}]", insType.String(), units))
+}
+
 type Treatment struct {
-	ID        string    `json:"_id"`
-	CreatedAt time.Time `json:"created_at"`
-	Insulin   float64   `json:"insulin"`
-	Carbs     float64   `json:"carbs"`
+	ID                string            `json:"_id"`
+	EventType         string            `json:"eventType"`
+	EnteredBy         string            `json:"enteredBy"`
+	CreatedAt         time.Time         `json:"created_at"`
+	Insulin           float64           `json:"insulin"`
+	Carbs             float64           `json:"carbs"`
+	InsulinInjections InsulinInjections `json:"insulinInjections"`
+}
+
+func (t *Treatment) MarshalJSON() ([]byte, error) {
+	// exclude ID
+	return json.Marshal(&struct {
+		EventType         string            `json:"eventType"`
+		EnteredBy         string            `json:"enteredBy"`
+		CreatedAt         time.Time         `json:"created_at"`
+		Insulin           float64           `json:"insulin"`
+		Carbs             float64           `json:"carbs"`
+		InsulinInjections InsulinInjections `json:"insulinInjections"`
+	}{
+		EventType:         t.EventType,
+		EnteredBy:         t.EnteredBy,
+		CreatedAt:         t.CreatedAt,
+		Insulin:           t.Insulin,
+		Carbs:             t.Carbs,
+		InsulinInjections: t.InsulinInjections,
+	})
+}
+
+func (t *Treatment) Kind() string {
+	return "Treatment"
+}
+
+type InsulinType int8
+
+const (
+	Fiasp InsulinType = iota
+	Novorapid
+	Humalog
+	Lispro
+	Actapid
+	Lantus
+	Toujeo
+	InsulinTypeUnknown
+)
+
+var insulinTypeLoCaseMap = map[string]InsulinType{
+	"fiasp":     Fiasp,
+	"novorapid": Novorapid,
+	"humalog":   Humalog,
+	"lispro":    Lispro,
+	"actapid":   Actapid,
+	"lantus":    Lantus,
+	"toujeo":    Toujeo,
+}
+
+func ParseInsulinType(value string) (InsulinType, error) {
+	t, ok := insulinTypeLoCaseMap[strings.ToLower(value)]
+	if !ok {
+		return InsulinTypeUnknown, fmt.Errorf("parse error: unknown insulin type %s", value)
+	}
+	return t, nil
+}
+
+func (it InsulinType) String() string {
+	switch it {
+	case Lantus:
+		return "Lantus"
+	case Toujeo:
+		return "Toujeo"
+	case Fiasp:
+		return "Fiasp"
+	case Novorapid:
+		return "Novorapid"
+	case Humalog:
+		return "Humalog"
+	case Lispro:
+		return "Lispro"
+	case Actapid:
+		return "Actapid"
+	default:
+		return "unknown"
+	}
+}
+
+func (it InsulinType) IsLongActing() bool {
+	switch it {
+	case Lantus, Toujeo:
+		return true
+	default:
+		return false
+	}
+}
+
+func NewTreatment() *Treatment {
+	return new(Treatment)
 }
 
 type Treatments []*Treatment

@@ -1,16 +1,20 @@
-package nightscout
+package rest
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"reflect"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Request struct {
@@ -54,13 +58,12 @@ func NewRequest(c *RESTClient) *Request {
 		pathPrefix: pathPrefix,
 	}
 
-	if len(c.token) > 0 {
-		r.SetHeader("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	if len(c.content.ContentType) > 0 {
+		r.SetHeader("Content-Type", c.content.ContentType)
 	}
 
-	if len(c.contentType) > 0 {
-		r.SetHeader("Content-Type", c.contentType)
-		r.SetHeader("Accept", c.contentType)
+	if len(c.content.AcceptContentTypes) > 0 {
+		r.SetHeader("Accept", c.content.AcceptContentTypes)
 	}
 
 	return r
@@ -135,6 +138,8 @@ type Result struct {
 	contentType string
 	err         error
 	statusCode  int
+
+	serializer Serializer
 }
 
 func (r Result) Error() error {
@@ -151,10 +156,17 @@ func (r Result) Into(obj any) error {
 			r.statusCode, r.contentType)
 	}
 
-	return json.Unmarshal(r.body, obj)
+	if r.serializer == nil {
+		return errors.New("no serializer")
+	}
+
+	return r.serializer.Decode(r.body, obj)
 }
 
 func (r *Request) transformResponse(resp *http.Response, req *http.Request) Result {
+
+	// data, _ := httputil.DumpResponse(resp, true)
+	// fmt.Println(string(data))
 
 	var body []byte
 	if resp.Body != nil {
@@ -169,7 +181,23 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 
 	contentType := resp.Header.Get("Content-Type")
 	if len(contentType) == 0 {
-		contentType = r.c.contentType
+		contentType = r.c.content.ContentType
+	}
+
+	var serializer Serializer
+	if len(contentType) > 0 {
+		var err error
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil {
+			return Result{err: err}
+		}
+
+		var found bool
+		serializer, found = SerializerForMediaType(mediaType)
+		if !found {
+			return Result{err: errors.Errorf("no serializer found for mediatype %s", mediaType)}
+		}
+
 	}
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
@@ -185,6 +213,7 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 		body:        body,
 		contentType: contentType,
 		statusCode:  resp.StatusCode,
+		serializer:  serializer,
 	}
 }
 
@@ -210,6 +239,10 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 	if err != nil {
 		return err
 	}
+
+	// data, _ := httputil.DumpRequest(req, true)
+	// fmt.Println(string(data))
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -241,6 +274,54 @@ func (r *Request) newHTTPRequest(ctx context.Context) (*http.Request, error) {
 	req = req.WithContext(ctx)
 	req.Header = r.headers
 	return req, nil
+}
+
+func (r *Request) Body(obj any) *Request {
+	if r.err != nil {
+		return r
+	}
+
+	switch t := obj.(type) {
+	case string:
+		data, err := os.ReadFile(t)
+		if err != nil {
+			r.err = err
+			return r
+		}
+		r.body = nil
+		r.bodyBytes = data
+	case []byte:
+		r.body = nil
+		r.bodyBytes = t
+	case io.Reader:
+		r.body = t
+		r.bodyBytes = nil
+	case Object:
+		// callers may pass typed interface pointers, therefore we must check nil with reflection
+		if reflect.ValueOf(t).IsNil() {
+			return r
+		}
+
+		serializer, found := SerializerForMediaType(r.c.content.ContentType)
+		if !found {
+			r.err = fmt.Errorf("cant find serializer for ContentType: %s", r.c.content.ContentType)
+			return r
+		}
+
+		buff := new(bytes.Buffer)
+		err := serializer.Encode(t, buff)
+		if err != nil {
+			r.err = err
+			return r
+		}
+
+		r.body = buff
+		r.bodyBytes = nil
+		r.SetHeader("Content-Type", r.c.content.ContentType)
+	default:
+		r.err = fmt.Errorf("unknown type used for body: %+v", obj)
+	}
+	return r
 }
 
 // URL returns the current working URL.

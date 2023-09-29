@@ -79,12 +79,6 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				}
 			}
 
-			opts := nightscout.GetOptions{
-				DateFrom: dateFrom,
-				DateTo:   dateTo,
-				Count:    nightscout.MaxEnties,
-			}
-
 			jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
 			if err != nil {
 				return err
@@ -95,7 +89,12 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			nsInsulinEntries, err := ns.Treatments(nightscout.Insulin).Get(ctx, opts)
+			nsInsulinEntries, err := ns.Treatments().Get(ctx, nightscout.GetOptions{
+				Kind:     nightscout.Insulin,
+				DateFrom: dateFrom,
+				DateTo:   dateTo,
+				Count:    nightscout.MaxEnties,
+			})
 			if err != nil {
 				return err
 			}
@@ -118,11 +117,17 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				log.Debug().
 					Time("ts", t.CreatedAt.Local()).
 					Float64("insulin", t.Insulin).
+					Str("type", transform.LongActingInsulinMap[t.InsulinInjections.IsLongActing()]).
 					Msg("Insulin entry")
 				return nil
 			})
 
-			nsCarbsEntries, err := ns.Treatments(nightscout.Carbs).Get(ctx, opts)
+			nsCarbsEntries, err := ns.Treatments().Get(ctx, nightscout.GetOptions{
+				Kind:     nightscout.Carbs,
+				DateFrom: dateFrom,
+				DateTo:   dateTo,
+				Count:    nightscout.MaxEnties,
+			})
 			if err != nil {
 				return err
 			}
@@ -148,7 +153,11 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return nil
 			})
 
-			nsGlucoseEntries, err := ns.Glucose().Get(ctx, opts)
+			nsGlucoseEntries, err := ns.Glucose().Get(ctx, nightscout.GetOptions{
+				DateFrom: dateFrom,
+				DateTo:   dateTo,
+				Count:    nightscout.MaxEnties,
+			})
 			if err != nil {
 				return err
 			}
@@ -250,7 +259,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 
 			log.Debug().
 				Str("token", lv.Token()).
-				Msg("use token")
+				Msg("use token for libreview")
 
 			resp, err := lv.ImportMeasurements(modificators...)
 			if err != nil {
@@ -367,13 +376,3 @@ func getDateRange(fromDateStr, toDateStr, dateOffset, tsLayout string) (fromDate
 	return
 
 }
-
-// measurementMap := map[string]libreview.MeasuremenModificator{
-// 	"scheduledContinuousGlucose":   libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
-// 	"unscheduledContinuousGlucose": libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
-// 	"insulin":                      libreview.WithInsulinEntries(libreInsulinEntries),
-// }
-
-// func getGlucoseEntries(ctx context.Context, ns nightscout.Client) libreview.MeasuremenModificator {
-
-// }

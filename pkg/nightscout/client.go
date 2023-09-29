@@ -5,31 +5,40 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/rest"
 )
 
 const (
-	Insulin       = "insulin"
-	Carbs         = "carbs"
-	DefaultMaxSVG = 400
-	DefaultMinSVG = 40
-	MaxEnties     = 131072
+	Insulin            = "insulin"
+	Carbs              = "carbs"
+	DefaultMaxSVG      = 400
+	DefaultMinSVG      = 40
+	MaxEnties          = 131072
+	versionedAPIPathV1 = "api/v1"
+	versionedAPIPathV2 = "api/v2"
 )
 
+var contentConfig = rest.ClientContentConfig{
+	AcceptContentTypes: "application/json",
+	ContentType:        "application/json",
+}
+
 type GetOptions struct {
-	URLToken string
+	Kind     string
 	DateFrom time.Time
 	DateTo   time.Time
 	Count    int
 }
 
 type Client interface {
-	RESTClient() RestInterface
+	RESTClient() rest.Interface
 	GlucoseGetter
 	TreatmentsGetter
 }
 
 type nightscout struct {
-	restClient RestInterface
+	restClient rest.Interface
 	// urlToken   string
 }
 
@@ -49,7 +58,7 @@ func NewJWTToken(baseUrl string, urlToken string) (string, error) {
 
 	tokenResp := new(TokenResponse)
 
-	err = NewRESTClient(u, "/api/v2", http.DefaultClient).
+	err = rest.NewRESTClient(u, versionedAPIPathV2, contentConfig, http.DefaultClient).
 		Get().
 		Resource("authorization/request").
 		Name(urlToken).
@@ -69,8 +78,11 @@ func NewWithJWTToken(baseUrl, JWTToken string) (Client, error) {
 		return nil, err
 	}
 
+	client := http.DefaultClient
+	client.Transport = rest.NewBearerAuthRoundTripper(JWTToken, http.DefaultTransport.(*http.Transport).Clone())
+
 	return &nightscout{
-		restClient: NewRESTClient(u, "api/v1", http.DefaultClient, WithJWTToken(JWTToken)),
+		restClient: rest.NewRESTClient(u, versionedAPIPathV1, contentConfig, client),
 	}, nil
 }
 
@@ -82,19 +94,19 @@ func New(baseUrl string) (Client, error) {
 	}
 
 	return &nightscout{
-		restClient: NewRESTClient(u, "api/v1", http.DefaultClient),
+		restClient: rest.NewRESTClient(u, versionedAPIPathV1, contentConfig, http.DefaultClient),
 	}, nil
 }
 
-func (ns *nightscout) RESTClient() RestInterface {
+func (ns *nightscout) RESTClient() rest.Interface {
 	if ns == nil {
 		return nil
 	}
 	return ns.restClient
 }
 
-func (ns *nightscout) Treatments(kind string) TreatmentInterface {
-	return newTreatments(ns, kind)
+func (ns *nightscout) Treatments() TreatmentInterface {
+	return newTreatments(ns)
 }
 
 func (ns *nightscout) Glucose() GlucoseInterface {

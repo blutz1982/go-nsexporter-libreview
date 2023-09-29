@@ -76,6 +76,8 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 	cmd.AddCommand(
 		newLibreCommand(ctx),
 		newConfigCommand(ctx),
+		newCreateCommand(ctx),
+		newDeleteCommand(ctx),
 	)
 
 	return cmd

@@ -4,6 +4,8 @@ import (
 	"context"
 	"strconv"
 	"time"
+
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/rest"
 )
 
 type GlucoseGetter interface {
@@ -15,7 +17,7 @@ type GlucoseInterface interface {
 }
 
 type glucose struct {
-	client RestInterface
+	client rest.Interface
 }
 
 // newGlucose returns a Glucos
@@ -33,9 +35,9 @@ func (g glucose) Get(ctx context.Context, opts GetOptions) (result *GlucoseEntri
 		Param("find[dateString][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
 		Param("count", strconv.Itoa(opts.Count))
 
-	if len(opts.URLToken) > 0 {
-		r = r.Param("token", opts.URLToken)
-	}
+	// if len(opts.URLToken) > 0 {
+	// 	r = r.Param("token", opts.URLToken)
+	// }
 
 	err = r.Do(ctx).Into(result)
 
@@ -82,6 +84,10 @@ type GlucoseEntry struct {
 	RecordNumber int       `json:"recordNumber"`
 	UtcOffset    int       `json:"utcOffset"`
 	Mills        int64     `json:"mills"`
+}
+
+func (g *GlucoseEntry) Kind() string {
+	return "GlucoseEntry"
 }
 
 type GlucoseEntries []*GlucoseEntry

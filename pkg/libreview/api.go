@@ -260,7 +260,8 @@ type APILibreViewAuth struct {
 }
 
 type LibreViewExportResp struct {
-	Status int `json:"status"`
+	Status int    `json:"status"`
+	Reason string `json:"reason"`
 	Result struct {
 		UploadID          string `json:"UploadId"`
 		Status            int    `json:"Status"`
