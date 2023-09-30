@@ -1,3 +1,9 @@
+## [1.2.0-beta] (2023-09-30)
+
+### New
+
+* Added the ability to export long-acting insulin Lantus and Toujeo from xDrip+ (xDrip+ must be configured for multiple insulin profiles. E.g. very-fast Fiasp insulin and long-acting Lantus insulin)
+
 ## [1.1.0-beta] (2023-09-26)
 
 ### Fix

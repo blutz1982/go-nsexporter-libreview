@@ -70,7 +70,7 @@ func newTreatments(c Client) *treatments {
 
 type InsulinInjections string
 
-var reLongActingInsulin = regexp.MustCompile(`^.*(Lantus|Toujeo|Tresiba).*$`)
+var reLongActingInsulin = regexp.MustCompile(`^.*(Lantus|Toujeo).*$`)
 
 func (ii InsulinInjections) IsLongActing() bool {
 	return reLongActingInsulin.MatchString(ii.String())
