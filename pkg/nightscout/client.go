@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	Insulin            = "insulin"
-	Carbs              = "carbs"
+	// Kind
+	Insulin = "insulin"
+	Carbs   = "carbs"
+	Sgv     = "sgv"
+
 	DefaultMaxSVG      = 400
 	DefaultMinSVG      = 40
 	MaxEnties          = 131072
@@ -24,7 +27,7 @@ var contentConfig = rest.ClientContentConfig{
 	ContentType:        "application/json",
 }
 
-type GetOptions struct {
+type ListOptions struct {
 	Kind     string
 	DateFrom time.Time
 	DateTo   time.Time
@@ -35,6 +38,7 @@ type Client interface {
 	RESTClient() rest.Interface
 	GlucoseGetter
 	TreatmentsGetter
+	DeviceGetter
 }
 
 type nightscout struct {
@@ -111,4 +115,8 @@ func (ns *nightscout) Treatments() TreatmentInterface {
 
 func (ns *nightscout) Glucose() GlucoseInterface {
 	return newGlucose(ns)
+}
+
+func (ns *nightscout) DeviceStatus() DeviceInterface {
+	return newDevice(ns)
 }

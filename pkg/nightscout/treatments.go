@@ -17,7 +17,7 @@ type TreatmentsGetter interface {
 }
 
 type TreatmentInterface interface {
-	Get(ctx context.Context, opts GetOptions) (*Treatments, error)
+	List(ctx context.Context, opts ListOptions) (*Treatments, error)
 	Create(ctx context.Context, treatment *Treatment) (result Treatments, err error)
 	Delete(ctx context.Context, id string) error
 }
@@ -26,14 +26,17 @@ type treatments struct {
 	client rest.Interface
 }
 
-func (t *treatments) Get(ctx context.Context, opts GetOptions) (result *Treatments, err error) {
+func (t *treatments) List(ctx context.Context, opts ListOptions) (result *Treatments, err error) {
 	result = &Treatments{}
 	r := t.client.Get().
 		Name("treatments").
 		Param("find[created_at][$gte]", opts.DateFrom.UTC().Format(time.RFC3339)).
 		Param("find[created_at][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
-		Param(fmt.Sprintf("find[%s][$gt]", opts.Kind), "0").
 		Param("count", strconv.Itoa(opts.Count))
+
+	if len(opts.Kind) > 0 {
+		r = r.Param(fmt.Sprintf("find[%s][$gt]", opts.Kind), "0")
+	}
 
 	err = r.Do(ctx).Into(result)
 
@@ -155,7 +158,7 @@ func (it InsulinType) String() string {
 	case Toujeo:
 		return "Toujeo"
 	case Fiasp:
-		return "Fiasp"
+		return "FIASP"
 	case Novorapid:
 		return "Novorapid"
 	case Humalog:

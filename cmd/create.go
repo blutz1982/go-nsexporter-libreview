@@ -58,26 +58,8 @@ func newCreateTreatment(ctx context.Context) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			if err := settings.LoadConfig(); err != nil {
-				return errors.Wrap(err, "cant load config")
-			}
-
-			if err := validateConfig(); err != nil {
-				return err
-			}
-
 			if insulin == 0 && carbs == 0 {
 				return errors.New("nothing to create")
-			}
-
-			jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
-			if err != nil {
-				return err
-			}
-
-			ns, err := nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
-			if err != nil {
-				return err
 			}
 
 			t := nightscout.NewTreatment()
@@ -106,6 +88,11 @@ func newCreateTreatment(ctx context.Context) *cobra.Command {
 
 			} else {
 				t.CreatedAt = time.Now().UTC()
+			}
+
+			ns, err := getNightscoutClient()
+			if err != nil {
+				return err
 			}
 
 			created, err := ns.Treatments().Create(ctx, t)

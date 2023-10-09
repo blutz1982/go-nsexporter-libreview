@@ -13,7 +13,7 @@ type GlucoseGetter interface {
 }
 
 type GlucoseInterface interface {
-	Get(ctx context.Context, opts GetOptions) (*GlucoseEntries, error)
+	List(ctx context.Context, opts ListOptions) (*GlucoseEntries, error)
 }
 
 type glucose struct {
@@ -27,17 +27,14 @@ func newGlucose(c Client) *glucose {
 	}
 }
 
-func (g glucose) Get(ctx context.Context, opts GetOptions) (result *GlucoseEntries, err error) {
+func (g glucose) List(ctx context.Context, opts ListOptions) (result *GlucoseEntries, err error) {
 	result = &GlucoseEntries{}
 	r := g.client.Get().
-		Name("entries").
+		Resource("entries").
+		Name(opts.Kind).
 		Param("find[dateString][$gte]", opts.DateFrom.UTC().Format(time.RFC3339)).
 		Param("find[dateString][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
 		Param("count", strconv.Itoa(opts.Count))
-
-	// if len(opts.URLToken) > 0 {
-	// 	r = r.Param("token", opts.URLToken)
-	// }
 
 	err = r.Do(ctx).Into(result)
 

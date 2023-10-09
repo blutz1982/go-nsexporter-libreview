@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/env"
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -78,8 +80,22 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 		newConfigCommand(ctx),
 		newCreateCommand(ctx),
 		newDeleteCommand(ctx),
+		newListCommand(ctx),
 	)
 
 	return cmd
 
+}
+
+func getNightscoutClient() (nightscout.Client, error) {
+	if err := settings.LoadConfig(); err != nil {
+		return nil, errors.Wrap(err, "cant load config")
+	}
+
+	jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
 }

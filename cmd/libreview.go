@@ -9,40 +9,21 @@ import (
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/transform"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
-
-func validateConfig() error {
-	if settings.Nightscout() == nil {
-		return errors.New("bad config. nightscout section not found")
-	}
-
-	if settings.Libreview() == nil {
-		return errors.New("bad config. libreview section not found")
-	}
-
-	return nil
-
-}
 
 func newLibreCommand(ctx context.Context) *cobra.Command {
 
 	const (
 		frequencyDeflectionPercent int = 30
-		defaultTSLayout                = "2006-01-02"
 	)
 
 	var (
-		fromDate          string
-		toDate            string
-		dateOffset        string
 		minInterval       string
 		dryRun            bool
 		avgScanFrequency  int
 		setDevice         bool
-		tsLayout          string
 		lastTimestampFile string
 		measurements      []string
 		token             string
@@ -57,15 +38,22 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			if err := settings.LoadConfig(); err != nil {
-				return errors.Wrap(err, "cant load config")
-			}
-
-			if err := validateConfig(); err != nil {
+			dateFrom, dateTo, err := settings.DateRange()
+			if err != nil {
 				return err
 			}
 
-			dateFrom, dateTo, err := getDateRange(fromDate, toDate, dateOffset, tsLayout)
+			ns, err := getNightscoutClient()
+			if err != nil {
+				return err
+			}
+
+			nsInsulinEntries, err := ns.Treatments().List(ctx, nightscout.ListOptions{
+				Kind:     nightscout.Insulin,
+				DateFrom: dateFrom,
+				DateTo:   dateTo,
+				Count:    settings.NightscoutMaxEnties(),
+			})
 			if err != nil {
 				return err
 			}
@@ -77,26 +65,6 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-			}
-
-			jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
-			if err != nil {
-				return err
-			}
-
-			ns, err := nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
-			if err != nil {
-				return err
-			}
-
-			nsInsulinEntries, err := ns.Treatments().Get(ctx, nightscout.GetOptions{
-				Kind:     nightscout.Insulin,
-				DateFrom: dateFrom,
-				DateTo:   dateTo,
-				Count:    nightscout.MaxEnties,
-			})
-			if err != nil {
-				return err
 			}
 
 			if lastTS != nil {
@@ -122,11 +90,11 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return nil
 			})
 
-			nsCarbsEntries, err := ns.Treatments().Get(ctx, nightscout.GetOptions{
+			nsCarbsEntries, err := ns.Treatments().List(ctx, nightscout.ListOptions{
 				Kind:     nightscout.Carbs,
 				DateFrom: dateFrom,
 				DateTo:   dateTo,
-				Count:    nightscout.MaxEnties,
+				Count:    settings.NightscoutMaxEnties(),
 			})
 			if err != nil {
 				return err
@@ -153,10 +121,11 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				return nil
 			})
 
-			nsGlucoseEntries, err := ns.Glucose().Get(ctx, nightscout.GetOptions{
+			nsGlucoseEntries, err := ns.Glucose().List(ctx, nightscout.ListOptions{
 				DateFrom: dateFrom,
 				DateTo:   dateTo,
-				Count:    nightscout.MaxEnties,
+				Count:    settings.NightscoutMaxEnties(),
+				Kind:     nightscout.Sgv,
 			})
 			if err != nil {
 				return err
@@ -290,10 +259,9 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	}
 
 	fs := cmd.Flags()
-	fs.StringVar(&tsLayout, "ts-layout", defaultTSLayout, "Timestamp layout for --date-from and --date-to flags. More https://go.dev/src/time/format.go")
-	fs.StringVar(&fromDate, "date-from", "", "Start of sampling period")
-	fs.StringVar(&dateOffset, "date-offset", "", "Start of sampling period with current time offset. Set in duration (e.g. 24h or 72h30m). Ignore --date-from and --date-to flags")
-	fs.StringVar(&toDate, "date-to", "", "End of sampling period")
+
+	settings.AddListFlags(fs)
+
 	fs.StringVar(&minInterval, "min-interval", "10m10s", "Filter: minimum sample interval (duration)")
 	fs.IntVar(&avgScanFrequency, "scan-frequency", 90, "Average scan frequency (minutes). e.g. scan internal min=avg-30%, max=avg+30%")
 	fs.BoolVar(&dryRun, "dry-run", false, "Do not post measurement to LibreView")
@@ -335,44 +303,4 @@ func Percent(percent int, all int) float64 {
 func getRangeSpread(avgVal, percentSpread int) (min, max int) {
 	return int(float64(avgVal) - Percent(percentSpread, avgVal)),
 		int(float64(avgVal) + Percent(percentSpread, avgVal))
-}
-
-func getDateRange(fromDateStr, toDateStr, dateOffset, tsLayout string) (fromDate, toDate time.Time, err error) {
-
-	var duration time.Duration
-
-	if len(dateOffset) > 0 {
-		fromDateStr = ""
-		toDateStr = ""
-		duration, err = time.ParseDuration(dateOffset)
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-	}
-
-	if len(fromDateStr) == 0 {
-		now := time.Now().Local()
-		if len(dateOffset) > 0 {
-			fromDate = now.Add(-duration)
-		} else {
-			fromDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-		}
-	} else {
-		fromDate, err = time.ParseInLocation(tsLayout, fromDateStr, time.Local)
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-	}
-
-	if len(toDateStr) == 0 {
-		toDate = time.Now().Local()
-	} else {
-		toDate, err = time.ParseInLocation(tsLayout, toDateStr, time.Local)
-		if err != nil {
-			return time.Time{}, time.Time{}, err
-		}
-	}
-
-	return
-
 }

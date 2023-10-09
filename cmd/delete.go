@@ -3,8 +3,6 @@ package cmd
 import (
 	"context"
 
-	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -39,20 +37,7 @@ func newDeleteTreatment(ctx context.Context) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			if err := settings.LoadConfig(); err != nil {
-				return errors.Wrap(err, "cant load config")
-			}
-
-			if err := validateConfig(); err != nil {
-				return err
-			}
-
-			jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
-			if err != nil {
-				return err
-			}
-
-			ns, err := nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
+			ns, err := getNightscoutClient()
 			if err != nil {
 				return err
 			}
