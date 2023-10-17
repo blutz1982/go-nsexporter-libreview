@@ -48,7 +48,7 @@ func newListDeviceStatus(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			ns, err := getNightscoutClient()
+			ns, err := getNightscoutClient(ctx)
 			if err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ func newListTreatment(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			ns, err := getNightscoutClient()
+			ns, err := getNightscoutClient(ctx)
 			if err != nil {
 				return err
 			}
@@ -151,7 +151,7 @@ func newListGlucose(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			ns, err := getNightscoutClient()
+			ns, err := getNightscoutClient(ctx)
 			if err != nil {
 				return err
 			}

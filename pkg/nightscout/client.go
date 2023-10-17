@@ -2,6 +2,7 @@ package nightscout
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -43,7 +44,6 @@ type Client interface {
 
 type nightscout struct {
 	restClient rest.Interface
-	// urlToken   string
 }
 
 type TokenResponse struct {
@@ -54,7 +54,23 @@ type TokenResponse struct {
 	Exp              int        `json:"exp"`
 }
 
-func NewJWTToken(baseUrl string, urlToken string) (string, error) {
+type NightscoutError struct {
+	Err  error
+	Info string
+}
+
+func (nsErr *NightscoutError) Error() string {
+	return fmt.Sprintf("nightscout client: %s: %v", nsErr.Info, nsErr.Err)
+}
+
+func NewNightscoutError(err error, info string) error {
+	return &NightscoutError{
+		Err:  err,
+		Info: info,
+	}
+}
+
+func NewJWTToken(ctx context.Context, baseUrl string, urlToken string) (string, error) {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return "", err
@@ -66,10 +82,10 @@ func NewJWTToken(baseUrl string, urlToken string) (string, error) {
 		Get().
 		Resource("authorization/request").
 		Name(urlToken).
-		Do(context.Background()).
+		Do(ctx).
 		Into(tokenResp)
 	if err != nil {
-		return "", err
+		return "", NewNightscoutError(err, "auth error: cant retreive JWT token")
 	}
 
 	return tokenResp.Token, nil

@@ -37,7 +37,7 @@ func newDeleteTreatment(ctx context.Context) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			ns, err := getNightscoutClient()
+			ns, err := getNightscoutClient(ctx)
 			if err != nil {
 				return err
 			}

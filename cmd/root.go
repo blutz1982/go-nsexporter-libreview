@@ -87,12 +87,12 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 
 }
 
-func getNightscoutClient() (nightscout.Client, error) {
+func getNightscoutClient(ctx context.Context) (nightscout.Client, error) {
 	if err := settings.LoadConfig(); err != nil {
 		return nil, errors.Wrap(err, "cant load config")
 	}
 
-	jwtToken, err := nightscout.NewJWTToken(settings.Nightscout().URL, settings.Nightscout().APIToken)
+	jwtToken, err := nightscout.NewJWTToken(ctx, settings.Nightscout().URL, settings.Nightscout().APIToken)
 	if err != nil {
 		return nil, err
 	}

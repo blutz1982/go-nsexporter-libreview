@@ -37,6 +37,9 @@ func (g glucose) List(ctx context.Context, opts ListOptions) (result *GlucoseEnt
 		Param("count", strconv.Itoa(opts.Count))
 
 	err = r.Do(ctx).Into(result)
+	if err != nil {
+		return result, NewNightscoutError(err, "cant retreive list glucose entries")
+	}
 
 	return
 }

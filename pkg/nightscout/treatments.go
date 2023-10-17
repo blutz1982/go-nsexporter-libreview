@@ -40,6 +40,10 @@ func (t *treatments) List(ctx context.Context, opts ListOptions) (result *Treatm
 
 	err = r.Do(ctx).Into(result)
 
+	if err != nil {
+		return result, NewNightscoutError(err, "cant retreive list treatments")
+	}
+
 	return
 
 }
@@ -52,16 +56,27 @@ func (t *treatments) Create(ctx context.Context, treatment *Treatment) (result T
 		Do(ctx).
 		Into(&result)
 
+	if err != nil {
+		return result, NewNightscoutError(err, "cant create treatment")
+	}
+
 	return
 
 }
 
 func (t *treatments) Delete(ctx context.Context, id string) error {
-	return t.client.Delete().
+	err := t.client.Delete().
 		Resource("treatments").
 		Name(id).
 		Do(ctx).
 		Error()
+
+	if err != nil {
+		return NewNightscoutError(err, "cant delete treatment")
+	}
+
+	return nil
+
 }
 
 // newTreatments returns a Treatments

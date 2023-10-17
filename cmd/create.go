@@ -90,7 +90,7 @@ func newCreateTreatment(ctx context.Context) *cobra.Command {
 				t.CreatedAt = time.Now().UTC()
 			}
 
-			ns, err := getNightscoutClient()
+			ns, err := getNightscoutClient(ctx)
 			if err != nil {
 				return err
 			}
