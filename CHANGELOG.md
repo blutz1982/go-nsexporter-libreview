@@ -1,4 +1,4 @@
-## [1.2.1-beta] (2023-09-30)
+## [1.2.1-beta] (2023-10-17)
 
 * Added experimental commands for creating and viewing some Nightscout objects (hidden commands).
 * Maken more informative output of some errors.
