@@ -142,8 +142,20 @@ type Result struct {
 	serializer Serializer
 }
 
+type ResultError struct {
+	err  error
+	body []byte
+}
+
 func (r Result) Error() error {
-	return r.err
+	return ResultError{
+		err:  r.err,
+		body: r.body,
+	}
+}
+
+func (resErr ResultError) Error() string {
+	return fmt.Sprintf("%v: body : %s", resErr.err, resErr.body)
 }
 
 func (r Result) Into(obj any) error {
@@ -195,7 +207,10 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 		var found bool
 		serializer, found = SerializerForMediaType(mediaType)
 		if !found {
-			return Result{err: errors.Errorf("no serializer found for mediatype %s", mediaType)}
+			return Result{
+				body: body,
+				err:  errors.Errorf("no serializer found for mediatype %s", mediaType),
+			}
 		}
 
 	}
@@ -205,7 +220,7 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 			body:        body,
 			contentType: contentType,
 			statusCode:  resp.StatusCode,
-			err:         fmt.Errorf("bad status code %d", resp.StatusCode),
+			err:         fmt.Errorf("bad status: %s at url %s", resp.Status, req.URL.String()),
 		}
 	}
 

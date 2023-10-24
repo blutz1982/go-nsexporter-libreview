@@ -81,6 +81,7 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 		newCreateCommand(ctx),
 		newDeleteCommand(ctx),
 		newListCommand(ctx),
+		newGraphommand(ctx),
 	)
 
 	return cmd

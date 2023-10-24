@@ -85,5 +85,25 @@ func ToLibreDirection(nsDirection string) string {
 	default:
 		return "Stable"
 	}
+}
+
+var arrowMap = map[string]string{
+	"TripleUp":      "⤊",
+	"DoubleUp":      "⇈",
+	"SingleUp":      "↑",
+	"FortyFiveUp":   "↗",
+	"Flat":          "→",
+	"FortyFiveDown": "↘",
+	"SingleDown":    "↓",
+	"DoubleDown":    "⇊",
+	"TripleDown":    "⤋",
+}
+
+func ToArrow(nsDirection string) string {
+	arrow, ok := arrowMap[nsDirection]
+	if !ok {
+		return ""
+	}
+	return arrow
 
 }

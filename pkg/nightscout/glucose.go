@@ -58,6 +58,10 @@ func (svg SVG) Float64() float64 {
 	return float64(svg)
 }
 
+func (svg SVG) MMol() float64 {
+	return svg.Float64() / 18
+}
+
 func (svg SVG) LowOutOfRange(min int) string {
 	if int(svg) <= min {
 		return "true"

@@ -40,6 +40,7 @@ type Client interface {
 	GlucoseGetter
 	TreatmentsGetter
 	DeviceGetter
+	ProfileGetter
 }
 
 type nightscout struct {
@@ -135,4 +136,8 @@ func (ns *nightscout) Glucose() GlucoseInterface {
 
 func (ns *nightscout) DeviceStatus() DeviceInterface {
 	return newDevice(ns)
+}
+
+func (ns *nightscout) Profiles() ProfileInterface {
+	return newProfile(ns)
 }
