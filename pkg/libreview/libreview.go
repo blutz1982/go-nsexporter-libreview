@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"time"
 )
@@ -15,6 +16,7 @@ const (
 	RecordNumberIncrementUnscheduled = 260000000000
 	RecordNumberIncrementInsulin     = 360000000000
 	RecordNumberIncrementFood        = 460000000000
+	RecordNumberIncrementGeneric     = 560000000000
 )
 
 var AllMeasurements = []string{
@@ -22,6 +24,7 @@ var AllMeasurements = []string{
 	"unscheduledContinuousGlucose",
 	"insulin",
 	"food",
+	// "generic",
 }
 
 type Client interface {
@@ -30,6 +33,7 @@ type Client interface {
 	LastImported() *time.Time
 	Token() string
 	SetToken(token string)
+	NewSensor(serial string) error
 }
 
 type libreview struct {
@@ -139,6 +143,58 @@ func WithFoodEntries(entries FoodEntries) MeasuremenModificator {
 	}
 }
 
+func WithGenericEntries(entries GenericEntries) MeasuremenModificator {
+	return func(l *MeasurementLog) {
+		l.GenericEntries = entries
+	}
+}
+
+func (lv *libreview) NewSensor(serial string) error {
+
+	// Mock exit
+	// if 0 == 0 {
+	// 	return fmt.Errorf("Not implemented yet")
+	// }
+
+	s := &Sensor{
+		Domain:      lv.config.ImportConfig.Domain,
+		DomainData:  fmt.Sprintf("{\"activeSensor\":\"%s\"}", serial),
+		GatewayType: lv.config.ImportConfig.GatewayType,
+		UserToken:   lv.userToken,
+	}
+
+	body := new(bytes.Buffer)
+	if err := json.NewEncoder(body).Encode(s); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, lv.apiEndpoint.JoinPath("lsl", "api", "nisperson").String(), body)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := lv.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Debug
+	// data, err := httputil.DumpResponse(resp, true)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Println(string(data))
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Libreview post new sensor: bad http status code %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (exportResp *LibreViewExportResp, err error) {
 
 	if len(modificators) == 0 {
@@ -192,7 +248,7 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 					"generic-com.abbottdiabetescare.informatics.alarmSetting",
 				},
 				BloodGlucoseEntries:                 []interface{}{},
-				GenericEntries:                      []interface{}{},
+				GenericEntries:                      GenericEntries{},
 				KetoneEntries:                       []interface{}{},
 				ScheduledContinuousGlucoseEntries:   ScheduledContinuousGlucoseEntries{},
 				InsulinEntries:                      InsulinEntries{},
@@ -211,7 +267,20 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 		return nil, err
 	}
 
-	resp, err := lv.client.Post(lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), "application/json", body)
+	req, err := http.NewRequest(http.MethodPost, lv.apiEndpoint.JoinPath("lsl", "api", "measurements").String(), body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	// debug
+	data, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(string(data))
+
+	resp, err := lv.client.Do(req)
 	if err != nil {
 		return nil, err
 	}

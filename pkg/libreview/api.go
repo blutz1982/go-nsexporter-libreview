@@ -111,6 +111,28 @@ func NewUnscheduledFromScheduledContinuousGlucoseEntry(s *ScheduledContinuousGlu
 	return entry
 }
 
+type GenericExtendedProperties struct {
+	FactoryTimestamp time.Time `json:"factoryTimestamp"`
+	Gmin             string    `json:"gmin"`
+	Gmax             string    `json:"gmax"`
+	WearDuration     string    `json:"wearDuration"`
+	WarmupTime       string    `json:"warmupTime"`
+	ProductType      string    `json:"productType"`
+}
+
+type GenericEntry struct {
+	Type               string                    `json:"type"`
+	ExtendedProperties GenericExtendedProperties `json:"extendedProperties"`
+	RecordNumber       int64                     `json:"recordNumber"`
+	Timestamp          time.Time                 `json:"timestamp"`
+}
+
+type GenericEntries []*GenericEntry
+
+func (r *GenericEntries) Append(e *GenericEntry) {
+	*r = append(*r, e)
+}
+
 type ScheduledContinuousGlucoseEntry struct {
 	ValueInMgPerDl     float64            `json:"valueInMgPerDl"`
 	ExtendedProperties ExtendedProperties `json:"extendedProperties"`
@@ -228,7 +250,7 @@ type Device struct {
 type MeasurementLog struct {
 	Capabilities                        []string                            `json:"capabilities"`
 	BloodGlucoseEntries                 []any                               `json:"bloodGlucoseEntries"`
-	GenericEntries                      []any                               `json:"genericEntries"`
+	GenericEntries                      GenericEntries                      `json:"genericEntries"`
 	KetoneEntries                       []any                               `json:"ketoneEntries"`
 	ScheduledContinuousGlucoseEntries   ScheduledContinuousGlucoseEntries   `json:"scheduledContinuousGlucoseEntries"`
 	InsulinEntries                      InsulinEntries                      `json:"insulinEntries"`
@@ -246,6 +268,14 @@ type Measurements struct {
 	UserToken   string     `json:"UserToken"`
 	GatewayType string     `json:"GatewayType"`
 	Domain      string     `json:"Domain"`
+	DeviceData  DeviceData `json:"DeviceData"`
+}
+
+type Sensor struct {
+	Domain      string     `json:"Domain"`
+	DomainData  string     `json:"DomainData"`
+	GatewayType string     `json:"GatewayType"`
+	UserToken   string     `json:"UserToken"`
 	DeviceData  DeviceData `json:"DeviceData"`
 }
 

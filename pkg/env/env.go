@@ -52,7 +52,6 @@ type file struct {
 
 type EnvSettings struct {
 	appName    string
-	version    string
 	ConfigPath string
 	Debug      bool
 	Timezone   string
@@ -150,14 +149,6 @@ func (s *EnvSettings) SaveConfig() error {
 	}
 
 	return os.WriteFile(s.ConfigPath, data, 0644)
-}
-
-func (s *EnvSettings) Version() string {
-	return s.version
-}
-
-func (s *EnvSettings) SetVersion(version string) {
-	s.version = version
 }
 
 func (s *EnvSettings) AppName() string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/blutz1982/go-nsexporter-libreview/internal/version"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/env"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
 	"github.com/pkg/errors"
@@ -25,13 +26,13 @@ func preRun() cobraRunFunc {
 		}
 		zerolog.SetGlobalLevel(logLevel)
 
-		debug("app started. Version %s", settings.Version())
+		info("app started. %s", version.FormatVersion())
 	}
 }
 
 func postRun() cobraRunFunc {
 	return func(cmd *cobra.Command, args []string) {
-		debug("app done")
+		info("app done")
 	}
 }
 
@@ -52,11 +53,14 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          settings.AppName(),
 		Short:        "nightscout exporter",
-		Version:      settings.Version(),
+		Version:      version.FormatVersion(),
 		PreRun:       preRun(),
 		PostRun:      postRun(),
 		SilenceUsage: true,
 	}
+
+	cmd.SetVersionTemplate(version.CmdVersionTemplate)
+
 	fs := cmd.PersistentFlags()
 	settings.AddCommonFlags(fs)
 
@@ -82,6 +86,8 @@ func NewRootCmd(ctx context.Context, args []string) *cobra.Command {
 		newDeleteCommand(ctx),
 		newListCommand(ctx),
 		newGraphommand(ctx),
+		newLibreAuth(ctx),
+		newLibreNewSensor(ctx),
 	)
 
 	return cmd

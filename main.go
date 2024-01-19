@@ -14,13 +14,11 @@ import (
 )
 
 var (
-	version string = "development"
-	app     string = "app"
+	app string = "app"
 )
 
 func init() {
 
-	env.Default.SetVersion(version)
 	env.Default.SetAppName(app)
 
 	log.Logger = zerolog.New(zerolog.NewConsoleWriter(

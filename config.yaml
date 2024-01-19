@@ -1,7 +1,7 @@
 libreview:
   auth:
-    password: ""
-    username: ""
+    password: "xxx"
+    username: "xxx"
   importConfig:
     apiEndpoint: https://api.libreview.ru
     culture: ru-RU

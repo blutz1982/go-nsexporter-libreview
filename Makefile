@@ -1,9 +1,10 @@
 GO := CGO_ENABLED=0 go
 APPNAME = nsexport
 VERSION :=  $(shell cat version.txt)
+MOD_NAME := $(shell go list -m)
 IMAGE_NAME = blutz1982/$(APPNAME)
 IMAGE_TAG = ${VERSION}
-LDFLAGS := -X main.version=${VERSION} -X main.app=$(APPNAME)
+LDFLAGS := -X $(MOD_NAME)/internal/version.version=$(VERSION) -X main.app=$(APPNAME)
 
 .PHONY: build
 build:

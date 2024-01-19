@@ -27,6 +27,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 		lastTimestampFile string
 		measurements      []string
 		token             string
+		newSensorSerial   string
 	)
 
 	cmd := &cobra.Command{
@@ -190,20 +191,38 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 				Strs("measurements", measurements).
 				Msg("Measurements to export")
 
+			var libreGenericEntries libreview.GenericEntries
+			lastScan, ok := libreUnscheduledGlucoseEntries.Last()
+			if ok {
+				libreGenericEntries.Append(transform.LibreUnscheduledContinuousGlucoseEntryToSensorStart(lastScan))
+			}
+
 			measurementMap := map[string]libreview.MeasuremenModificator{
 				"scheduledContinuousGlucose":   libreview.WithScheduledGlucoseEntries(libreScheduledGlucoseEntries),
 				"unscheduledContinuousGlucose": libreview.WithUnscheduledGlucoseEntries(libreUnscheduledGlucoseEntries),
 				"insulin":                      libreview.WithInsulinEntries(libreInsulinEntries),
 				"food":                         libreview.WithFoodEntries(libreFoodEntries),
+				"generic":                      libreview.WithGenericEntries(libreGenericEntries),
 			}
 
 			var modificators []libreview.MeasuremenModificator
 
+			importGeneric := false
 			for _, m := range measurements {
 				modificator, ok := measurementMap[m]
 				if ok {
 					modificators = append(modificators, modificator)
 				}
+				if m == "generic" {
+					importGeneric = len(newSensorSerial) > 0
+				}
+			}
+
+			if importGeneric {
+				log.Info().
+					Str("serial", newSensorSerial).
+					Time("install time", lastScan.Timestamp).
+					Msg("Prepare sensor start generic entry")
 			}
 
 			if dryRun || len(libreScheduledGlucoseEntries) == 0 || len(libreUnscheduledGlucoseEntries) == 0 || len(modificators) == 0 {
@@ -233,6 +252,15 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 			resp, err := lv.ImportMeasurements(modificators...)
 			if err != nil {
 				return err
+			}
+
+			if len(libreGenericEntries) > 0 && importGeneric {
+				err := lv.NewSensor(newSensorSerial)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Msg("Posible new sensor install failed")
+				}
 			}
 
 			log.Info().
@@ -269,6 +297,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 	fs.StringVar(&lastTimestampFile, "last-ts-file", "", "Path to last timestamp file (for example ./last.ts )")
 	fs.StringSliceVar(&measurements, "measurements", libreview.AllMeasurements, "measurements to upload")
 	fs.StringVar(&token, "token", "", "use existing libreview token (beta)")
+	fs.StringVar(&newSensorSerial, "install-new-sensor-sn", "", "new sensor serial number")
 
 	err := fs.MarkHidden("token")
 	if err != nil {

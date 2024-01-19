@@ -1,4 +1,4 @@
-FROM golang:1.19.0-buster as build
+FROM golang:1.21.4 as build
 
 ENV GO111MODULE=on
 
@@ -10,14 +10,14 @@ COPY . ./
 
 RUN make build
 
-FROM ubuntu:xenial
+FROM ubuntu:focal
 
 RUN apt update && \
-    apt install -y libssl1.0.0 ca-certificates
+    DEBIAN_FRONTEND=noninteractive TZ=Europe/Moscow apt install -y ca-certificates tzdata
 
 ENV WORKDIR=/usr/local/bin/
 
-COPY --from=build /opt/build/nsexport ${WORKDIR}
+COPY --from=build /opt/build/build/nsexport ${WORKDIR}
 
 WORKDIR ${WORKDIR}
 
