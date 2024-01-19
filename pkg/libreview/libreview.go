@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"time"
 )
@@ -274,11 +273,11 @@ func (lv *libreview) ImportMeasurements(modificators ...MeasuremenModificator) (
 	req.Header.Add("Content-Type", "application/json")
 
 	// debug
-	data, err := httputil.DumpRequest(req, true)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(string(data))
+	// data, err := httputil.DumpRequest(req, true)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// fmt.Println(string(data))
 
 	resp, err := lv.client.Do(req)
 	if err != nil {
