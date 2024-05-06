@@ -153,7 +153,7 @@ func newLibreCommand(ctx context.Context) *cobra.Command {
 			nsGlucoseEntries.Visit(func(e *nightscout.GlucoseEntry, err error) error {
 				libreScheduledGlucoseEntries.Append(transform.NSToLibreScheduledGlucoseEntry(e))
 				log.Debug().
-					Time("ts", e.DateString.Local()).
+					Time("ts", e.Date.Time().Local()).
 					Float64("svg", e.Sgv.Float64()).
 					Str("direction", e.Direction).
 					Msg("Scheduled Glucose entry")

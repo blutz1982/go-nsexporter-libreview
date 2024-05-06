@@ -32,8 +32,8 @@ func (g glucose) List(ctx context.Context, opts ListOptions) (result *GlucoseEnt
 	r := g.client.Get().
 		Resource("entries").
 		Name(opts.Kind).
-		Param("find[dateString][$gte]", opts.DateFrom.UTC().Format(time.RFC3339)).
-		Param("find[dateString][$lte]", opts.DateTo.UTC().Format(time.RFC3339)).
+		Param("find[date][$gte]", strconv.FormatInt(opts.DateFrom.UTC().UnixMilli(), 10)).
+		Param("find[date][$lte]", strconv.FormatInt(opts.DateTo.UTC().UnixMilli(), 10)).
 		Param("count", strconv.Itoa(opts.Count))
 
 	err = r.Do(ctx).Into(result)
@@ -70,10 +70,35 @@ func (svg SVG) LowOutOfRange(min int) string {
 	}
 }
 
+type NSTime time.Time
+
+func (t *NSTime) Time() time.Time {
+	return time.Time(*t)
+}
+
+func (t *NSTime) UnmarshalJSON(data []byte) error {
+	millis, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return err
+	}
+	*t = NSTime(time.UnixMilli(millis))
+	return nil
+}
+
+func (t *NSTime) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.FormatInt(t.Time().UnixMilli(), 10)), nil
+}
+
+func (t *NSTime) MarshalYAML() (interface{}, error) {
+	return t.Time().UnixMilli(), nil
+}
+
 type GlucoseEntry struct {
 	ID           string    `json:"_id"`
+	App          string    `json:"app"`
 	Device       string    `json:"device"`
-	Date         int64     `json:"date"`
+	Date         *NSTime   `json:"date"`
+	CreatedAt    string    `json:"created_at"`
 	DateString   time.Time `json:"dateString"`
 	Sgv          SVG       `json:"sgv"`
 	Delta        float64   `json:"delta"`
@@ -81,12 +106,14 @@ type GlucoseEntry struct {
 	Type         string    `json:"type"`
 	Filtered     float64   `json:"filtered"`
 	Unfiltered   float64   `json:"unfiltered"`
+	Units        string    `json:"units"`
 	Rssi         int       `json:"rssi"`
 	Noise        int       `json:"noise"`
 	SysTime      time.Time `json:"sysTime"`
 	DataType     int       `json:"dataType"`
 	RecordNumber int       `json:"recordNumber"`
 	UtcOffset    int       `json:"utcOffset"`
+	Subject      string    `json:"subject"`
 	Mills        int64     `json:"mills"`
 }
 
@@ -108,7 +135,7 @@ type GlucoseFilterFunc func(*GlucoseEntry) bool
 
 func OnlyAfter(date time.Time) GlucoseFilterFunc {
 	return func(e *GlucoseEntry) bool {
-		return e.DateString.After(date)
+		return e.Date.Time().After(date)
 	}
 }
 
@@ -133,16 +160,16 @@ func DownsampleDuration(d time.Duration) DownsampleFunc {
 
 func (es *GlucoseEntries) Downsample(f DownsampleFunc) *GlucoseEntries {
 
-	var lastTS *time.Time
+	var lastTS *NSTime
 
 	return es.Filter(func(e *GlucoseEntry) bool {
 		if lastTS == nil {
-			lastTS = &e.DateString
+			lastTS = e.Date
 			return true
 		}
 
-		if lastTS.Sub(e.DateString) > f() {
-			lastTS = &e.DateString
+		if lastTS.Time().Sub(e.Date.Time()) > f() {
+			lastTS = e.Date
 			return true
 		}
 

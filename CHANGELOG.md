@@ -1,3 +1,12 @@
+## [1.4.1] (2024-05-06)
+
+* The field used to sample glucose has been changed.
+
+```
+was: dateString - string
+stato: date - unixMilliseconds
+```
+
 ## [1.2.1-beta] (2023-10-17)
 
 * Added experimental commands for creating and viewing some Nightscout objects (hidden commands).

@@ -47,7 +47,7 @@ func DrawChart(entries *nightscout.GlucoseEntries, dst io.Writer, targetLow, tar
 		if lastEntry == nil {
 			lastEntry = e
 		}
-		s.XValues = append(s.XValues, e.DateString.Local())
+		s.XValues = append(s.XValues, e.Date.Time().Local())
 		s.YValues = append(s.YValues, e.Sgv.MMol())
 		return nil
 	})
@@ -109,7 +109,7 @@ func DrawChart(entries *nightscout.GlucoseEntries, dst io.Writer, targetLow, tar
 	if lastEntry != nil {
 		glusoseWithArrow := fmt.Sprintf("%.1f %s", lastEntry.Sgv.MMol(), transform.ToArrow(lastEntry.Direction))
 		graph.Elements = []chart.Renderable{
-			DrawTime(lastEntry.DateString.Local().Format("15:04")),
+			DrawTime(lastEntry.Date.Time().Local().Format("15:04")),
 			DrawLastGlucose(glusoseWithArrow, colorizeRange(lastEntry.Sgv.MMol(), targetLow, targetHigh)),
 		}
 

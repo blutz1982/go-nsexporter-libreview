@@ -35,8 +35,8 @@ func NSToLibreScheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Sched
 			IsFirstAfterTimeChange: false,
 			CanMerge:               "true",
 		},
-		RecordNumber: libreview.RecordNumberIncrement + e.DateString.Unix(),
-		Timestamp:    e.DateString.Local(),
+		RecordNumber: libreview.RecordNumberIncrement + e.Date.Time().Unix(),
+		Timestamp:    e.Date.Time().Local(),
 	}
 }
 
@@ -52,8 +52,8 @@ func NSToLibreUnscheduledGlucoseEntry(e *nightscout.GlucoseEntry) *libreview.Uns
 			TrendArrow:             ToLibreDirection(e.Direction),
 			IsActionable:           true,
 		},
-		RecordNumber: libreview.RecordNumberIncrementUnscheduled + e.DateString.Unix(),
-		Timestamp:    e.DateString.Local().Add(duration),
+		RecordNumber: libreview.RecordNumberIncrementUnscheduled + e.Date.Time().Unix(),
+		Timestamp:    e.Date.Time().Local().Add(duration),
 	}
 }
 
