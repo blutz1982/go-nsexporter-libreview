@@ -33,3 +33,9 @@ docker: build-image push-image
 push-image:
 	docker push ${IMAGE_NAME}:${IMAGE_TAG}
 	docker push ${IMAGE_NAME}:latest
+
+.PHONY: tag
+tag:
+	git tag -a v${IMAGE_TAG} -m "release ${IMAGE_TAG}"
+	git push origin v${IMAGE_TAG}
+
