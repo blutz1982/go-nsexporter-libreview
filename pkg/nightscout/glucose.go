@@ -44,7 +44,7 @@ func (g glucose) List(ctx context.Context, opts ListOptions) (result *GlucoseEnt
 	return
 }
 
-type SVG int
+type SVG float64
 
 func (svg SVG) HighOutOfRange(max int) string {
 	if int(svg) >= max {

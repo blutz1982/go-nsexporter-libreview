@@ -7,6 +7,7 @@ import (
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/printer"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
@@ -65,6 +66,7 @@ type ListFlags struct {
 	dateOffset string
 	toDate     string
 	count      int
+	printer    string
 }
 
 var defaultEnv *EnvSettings
@@ -79,6 +81,7 @@ func New() *EnvSettings {
 		listFlags: &ListFlags{
 			tsLayout: defaultTSLayout,
 			count:    nightscout.MaxEnties,
+			printer:  printer.YAMLPrinter,
 		},
 	}
 	return env
@@ -97,6 +100,7 @@ func (s *EnvSettings) AddListFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.listFlags.dateOffset, "date-offset", "", "Start of sampling period with current time offset. Set in duration (e.g. 24h or 72h30m). Ignore --date-from and --date-to flags")
 	fs.StringVar(&s.listFlags.toDate, "date-to", "", "End of sampling period")
 	fs.IntVar(&s.listFlags.count, "max-count", s.listFlags.count, "nightscout max count entries per API request")
+	fs.StringVarP(&s.listFlags.printer, "output", "o", s.listFlags.printer, "output (json or yaml)")
 }
 
 func (s *EnvSettings) DateRange() (fromDate, toDate time.Time, err error) {
@@ -105,6 +109,10 @@ func (s *EnvSettings) DateRange() (fromDate, toDate time.Time, err error) {
 
 func (s *EnvSettings) NightscoutMaxEnties() int {
 	return s.listFlags.count
+}
+
+func (s *EnvSettings) OutFormat() string {
+	return s.listFlags.printer
 }
 
 func envOr(name, def string) string {

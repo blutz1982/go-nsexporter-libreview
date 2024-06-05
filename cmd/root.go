@@ -26,13 +26,13 @@ func preRun() cobraRunFunc {
 		}
 		zerolog.SetGlobalLevel(logLevel)
 
-		info("app started. %s", version.FormatVersion())
+		debug("app started. %s", version.FormatVersion())
 	}
 }
 
 func postRun() cobraRunFunc {
 	return func(cmd *cobra.Command, args []string) {
-		info("app done")
+		debug("app done")
 	}
 }
 

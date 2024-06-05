@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"os"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
+	"github.com/blutz1982/go-nsexporter-libreview/pkg/printer"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 func newListCommand(ctx context.Context) *cobra.Command {
@@ -63,14 +63,7 @@ func newListDeviceStatus(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			data, err := yaml.Marshal(ds)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(data))
-
-			return nil
+			return printer.NewPrinter(settings.OutFormat(), os.Stdout).Print(ds)
 		},
 	}
 	fs := cmd.Flags()
@@ -115,14 +108,7 @@ func newListTreatment(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			data, err := yaml.Marshal(t)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(data))
-
-			return nil
+			return printer.NewPrinter(settings.OutFormat(), os.Stdout).Print(t)
 		},
 	}
 	fs := cmd.Flags()
@@ -166,14 +152,7 @@ func newListGlucose(ctx context.Context) *cobra.Command {
 				return err
 			}
 
-			data, err := yaml.Marshal(t)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(data))
-
-			return nil
+			return printer.NewPrinter(settings.OutFormat(), os.Stdout).Print(t)
 		},
 	}
 	fs := cmd.Flags()
