@@ -77,11 +77,11 @@ func (t *NSTime) Time() time.Time {
 }
 
 func (t *NSTime) UnmarshalJSON(data []byte) error {
-	millis, err := strconv.ParseInt(string(data), 10, 64)
+	millis, err := strconv.ParseFloat(string(data), 64)
 	if err != nil {
 		return err
 	}
-	*t = NSTime(time.UnixMilli(millis))
+	*t = NSTime(time.UnixMilli(int64(millis)))
 	return nil
 }
 
