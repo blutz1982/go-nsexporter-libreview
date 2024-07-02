@@ -1,3 +1,14 @@
+## [1.4.3] (2024-07-02)
+
+### Fix
+
+* corrected parser for glucose entry date type (int64 -> float64)
+
+```bash
+2024-07-02T14:21:13+03:00 FTL An error has accured error="nightscout client: cant retreive list glucose entries: strconv.ParseInt: parsing \"1719918959509.336\": invalid syntax"
+```
+
+
 ## [1.4.1] (2024-05-06)
 
 * The field used to sample glucose has been changed.
