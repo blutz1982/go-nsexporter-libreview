@@ -33,7 +33,7 @@ func newConfigCommand(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-func newPrintConfigCommand(ctx context.Context) *cobra.Command {
+func newPrintConfigCommand(_ context.Context) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "print",
@@ -64,7 +64,7 @@ func newPrintConfigCommand(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-func newDefaultConfigCommand(ctx context.Context) *cobra.Command {
+func newDefaultConfigCommand(_ context.Context) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "default",
@@ -86,7 +86,7 @@ func newDefaultConfigCommand(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-func newConfigSet(ctx context.Context) *cobra.Command {
+func newConfigSet(_ context.Context) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "set [KEY] [VALUE]",

@@ -1,16 +1,17 @@
 package env
 
 import (
-	"fmt"
+	// "fmt"
+
 	"os"
 	"time"
 
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/libreview"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/nightscout"
 	"github.com/blutz1982/go-nsexporter-libreview/pkg/printer"
-	"github.com/pkg/errors"
+	"github.com/gookit/config/v2"
+	"github.com/gookit/config/v2/yaml"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v2"
 )
 
 const DefaultConfigYaml string = `
@@ -125,13 +126,11 @@ func envOr(name, def string) string {
 func (s *EnvSettings) LoadConfig() error {
 	f := new(file)
 
-	b, err := os.ReadFile(s.ConfigPath)
-	if err != nil {
-		return errors.Wrapf(err, "couldn't load config file (%s)", s.ConfigPath)
+	if err := config.Default().WithDriver(yaml.Driver).WithOptions(config.ParseEnv).LoadFiles(s.ConfigPath); err != nil {
+		return err
 	}
 
-	if err := yaml.Unmarshal(b, f); err != nil {
-		fmt.Printf("bad yaml: %s\n---\n%s\n", s.ConfigPath, string(b))
+	if err := config.Default().Decode(f); err != nil {
 		return err
 	}
 
@@ -150,13 +149,7 @@ func (s *EnvSettings) LoadConfig() error {
 }
 
 func (s *EnvSettings) SaveConfig() error {
-
-	data, err := yaml.Marshal(s.config)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(s.ConfigPath, data, 0644)
+	return config.Default().DumpToFile(s.ConfigPath, config.Yaml)
 }
 
 func (s *EnvSettings) AppName() string {

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newLibreNewSensor(ctx context.Context) *cobra.Command {
+func newLibreNewSensor(_ context.Context) *cobra.Command {
 
 	var (
 		setDevice bool

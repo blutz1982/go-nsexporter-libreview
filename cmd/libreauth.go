@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newLibreAuth(ctx context.Context) *cobra.Command {
+func newLibreAuth(_ context.Context) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:           "libreauth",

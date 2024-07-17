@@ -1,9 +1,9 @@
 libreview:
   auth:
-    password: "xxx"
-    username: "xxx"
+    password: ${LV_PASSWORD}
+    username: ${LV_USERNAME}
   importConfig:
-    apiEndpoint: https://api.libreview.ru
+    apiEndpoint: ${LV_API_ENDPOINT | https://api.libreview.ru}
     culture: ru-RU
     deviceSettings:
       firmwareVersion: 2.8.2
@@ -17,11 +17,10 @@ libreview:
       selectedCarbType: grams of carbs
       selectedLanguage: ru_RU
       selectedTimeFormat: 24hr
-      uniqueIdentifier: ""
+      uniqueIdentifier: ${LV_DEVICE_ID}
     domain: Libreview
     gatewayType: FSLibreLink.Android
     uom: mmol/L
 nightscout:
-  apiToken: ""
-  url: ""
-
+  apiToken: ${NS_API_TOKEN}
+  url: ${NS_URL | http://localhost}
