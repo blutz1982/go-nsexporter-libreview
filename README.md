@@ -96,6 +96,8 @@ nsexport config default --config config.yaml
 #  set some config keys
 nsexport config set nightscout.url https://your.nightscout.domain
 nsexport config set nightscout.apiToken XXXXXXXXX
+# OR
+nsexport config set nightscout.apiSecret XXXXXXXXX
 nsexport config set libreview.auth.username your@e-main.address
 nsexport config set libreview.auth.password XXXXXXXX
 nsexport config set libreview.importConfig.deviceSettings.uniqueIdentifier xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -104,6 +106,8 @@ nsexport config set libreview.importConfig.deviceSettings.uniqueIdentifier xxxxx
 nsexport config print --config config.yaml
 
 ```
+
+If both the apiToken and apiSecret fields are specified, the API-secret value takes precedence
 
 # software disclaimer
 

@@ -25,3 +25,24 @@ func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 func NewBearerAuthRoundTripper(bearer string, rt http.RoundTripper) http.RoundTripper {
 	return &bearerAuthRoundTripper{bearer, rt}
 }
+
+type apiSecretAuthRoundTripper struct {
+	secret string
+	next   http.RoundTripper
+}
+
+func (rt *apiSecretAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if len(req.Header.Get("api-secret")) != 0 || len(rt.secret) == 0 {
+		return rt.next.RoundTrip(req)
+	}
+
+	req = req.Clone(req.Context())
+
+	req.Header.Set("api-secret", rt.secret)
+	return rt.next.RoundTrip(req)
+
+}
+
+func NewAPISecretAuthRoundTripper(secret string, rt http.RoundTripper) http.RoundTripper {
+	return &apiSecretAuthRoundTripper{secret, rt}
+}

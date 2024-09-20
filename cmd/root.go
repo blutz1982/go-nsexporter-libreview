@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"time"
 
 	"github.com/blutz1982/go-nsexporter-libreview/internal/version"
@@ -99,10 +101,17 @@ func getNightscoutClient(ctx context.Context) (nightscout.Client, error) {
 		return nil, errors.Wrap(err, "cant load config")
 	}
 
+	if len(settings.Nightscout().APISecret) > 0 {
+		hash := sha1.Sum([]byte(settings.Nightscout().APISecret))
+		debug("used api-secret for auth")
+		return nightscout.NewWithAPISecret(settings.Nightscout().URL, hex.EncodeToString(hash[:]))
+	}
+
 	jwtToken, err := nightscout.NewJWTToken(ctx, settings.Nightscout().URL, settings.Nightscout().APIToken)
 	if err != nil {
 		return nil, err
 	}
 
+	debug("used api-token for auth")
 	return nightscout.NewWithJWTToken(settings.Nightscout().URL, jwtToken)
 }

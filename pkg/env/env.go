@@ -40,6 +40,7 @@ libreview:
     uom: mmol/L
 nightscout:
   apiToken: ""
+  apiSecret: ""
   url: ""
 `
 

@@ -107,6 +107,21 @@ func NewWithJWTToken(baseUrl, JWTToken string) (Client, error) {
 	}, nil
 }
 
+func NewWithAPISecret(baseUrl, apiSecret string) (Client, error) {
+
+	u, err := url.Parse(baseUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	client := http.DefaultClient
+	client.Transport = rest.NewAPISecretAuthRoundTripper(apiSecret, http.DefaultTransport.(*http.Transport).Clone())
+
+	return &nightscout{
+		restClient: rest.NewRESTClient(u, versionedAPIPathV1, contentConfig, client),
+	}, nil
+}
+
 func New(baseUrl string) (Client, error) {
 
 	u, err := url.Parse(baseUrl)

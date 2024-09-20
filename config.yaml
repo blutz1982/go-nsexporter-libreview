@@ -23,4 +23,5 @@ libreview:
     uom: mmol/L
 nightscout:
   apiToken: ${NS_API_TOKEN}
+  apiSecret: ${NS_API_SECRET}
   url: ${NS_URL | http://localhost}
