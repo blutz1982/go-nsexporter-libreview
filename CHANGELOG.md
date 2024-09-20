@@ -1,3 +1,19 @@
+## [1.5.1] (2024-09-20)
+
+### Feat
+
+* add api-secret support for auth
+
+nigthscout YAML section:
+```yaml
+nightscout:
+  apiToken: XXXXXXX
+  apiSecret: XXXXXX
+  url: http://your-url
+```
+
+If both the apiToken and apiSecret fields are specified, the API-secret value takes precedence
+
 ## [1.4.3] (2024-07-02)
 
 ### Fix
