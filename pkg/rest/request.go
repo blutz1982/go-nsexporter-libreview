@@ -148,10 +148,13 @@ type ResultError struct {
 }
 
 func (r Result) Error() error {
-	return ResultError{
-		err:  r.err,
-		body: r.body,
+	if r.err != nil {
+		return ResultError{
+			err:  r.err,
+			body: r.body,
+		}
 	}
+	return nil
 }
 
 func (resErr ResultError) Error() string {
